@@ -1,0 +1,99 @@
+#shader vertex
+#version 330 core
+layout(location = 0) in vec3 in_Position;
+layout(location = 1) in vec3 in_Color;
+//layout(location = 2) in vec3 in_Normal;
+
+out vec3 ex_Color;
+//out vec3 ex_lightToVertex;
+//out vec3 ex_normal;
+//out vec3 ex_worldPos;
+
+//uniform mat4 projectionMatrix;
+//uniform mat4 viewMatrix;
+
+
+
+void main()
+{
+	gl_Position = vec4(in_Position, 1.0);
+	//ex_normal = in_Normal;
+	ex_Color = in_Color;
+	//ex_worldPos = in_Position;
+
+};
+
+#shader fragment
+#version 330 core
+
+//in vec3 ex_lightToVertex;
+//in vec3 ex_Color;
+//in vec3 ex_normal;
+//in vec3 ex_worldPos;
+
+in vec3 ex_Color;
+out vec4 out_Color;
+
+void main()
+{
+	//vec3 ambientLight = vec3(0.0f,1.0f,0.0f);
+	//float ambientCoefficient = 0.5f;
+	//vec3 ambientTerm = ambientCoefficient * ambientLight;
+	//
+	//vec3 diffuseLight = vec3(1.0f,0.f,0.f);
+	//float diffuseCoefficient = 1.0f;
+	//vec3 diffuseLightPosition = vec3(0.0f,0.0f,0.0f);
+	//vec3 lightDir = normalize(diffuseLightPosition - ex_worldPos);
+	//float NdotL = max(dot(lightDir, normalize(ex_normal)), 0.0f);
+	//vec3 diffuseTerm = diffuseCoefficient * NdotL * diffuseLight;
+	//
+	//vec3 result = (diffuseTerm) * ex_Color;
+	//if (NdotL < 0.01f)
+	//	out_Color = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+	//}
+	//else{
+	//	out_Color = vec4(result, 1.0f);
+	//}
+
+	out_Color = vec4(ex_Color, 1.0f);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	//vec3 surfaceColour = vec3(0.8f, 0.0f, 0.0f);
+	//float ambientCoefficient = 0.2f;
+	//float diffuseCoefficient = 0.8f;
+	//float specularCoefficient = 0.1f;
+	//
+	//vec3 ambientLightColour = vec3(0.6f, 0.6f, 0.6f);
+	//
+	//float NdotL = max(dot(normalize(ex_lightToVertex), ex_normal),0.0f);
+	//
+	//
+	//vec3 ambientTerm = ambientLightColour * ambientCoefficient;
+	//vec3 diffuseTerm = ambientLightColour * NdotL * diffuseCoefficient;
+	//
+	//vec3 intensity = surfaceColour * (ambientTerm + diffuseTerm);
+	//if (NdotL < 0.0f){
+	//	out_Color = vec4(0.0f, 0.0f, 0.8f, 1.0);
+	//}
+	//else{
+	//	out_Color = vec4(diffuseTerm, 1.0);
+	//}
+};
