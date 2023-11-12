@@ -5,11 +5,13 @@
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 
+#include "InputManager.h"
+
 #include <iostream>
 #include <vector>
 
-const int WIDTH = 640;
-const int HEIGHT = 480;
+const int WIDTH = 1280;
+const int HEIGHT = 720;
 constexpr int FRAMEBUFFER_SIZE = WIDTH * HEIGHT;
 
 const glm::vec4 black{0.0f, 0.0f, 0.0f, 1.0f};
@@ -21,7 +23,9 @@ const glm::vec4 burgundy{0.5f, 0.0f, 0.125f, 1.0f};
 
 struct Triangle{
 
-    Triangle(){
+    Triangle()
+        : v1(), v2(), v3(), colour()
+    {
     }
 
     Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec4& colour)
@@ -47,7 +51,7 @@ struct Shader{
     
     }
 
-    Triangle RasterizeTriangle(const Triangle& t, const glm::mat4 model){
+    Triangle RasterizeTriangle(const Triangle& t, const glm::mat4& model){
         
         Triangle raster;
         glm::mat4 mvp{ proj * view * model };
@@ -61,19 +65,17 @@ struct Shader{
 
         //get in screen space
         raster.v1.x = (raster.v1.x + 1) * (WIDTH / 2);
-        raster.v1.y = (raster.v1.y + 1) * (HEIGHT / 2);
+        raster.v1.y = -(raster.v1.y + 1) * (HEIGHT / 2);
         raster.v2.x = (raster.v2.x + 1) * (WIDTH / 2);
-        raster.v2.y = (raster.v2.y + 1) * (HEIGHT / 2);
+        raster.v2.y = -(raster.v2.y + 1) * (HEIGHT / 2);
         raster.v3.x = (raster.v3.x + 1) * (WIDTH / 2);
-        raster.v3.y = (raster.v3.y + 1) * (HEIGHT / 2);
+        raster.v3.y = -(raster.v3.y + 1) * (HEIGHT / 2);
 
 
         //TODO: Lerp colours
         raster.colour = t.colour;
         return raster;
     }
-    
-
 };
 
 struct FrameBuffer{
@@ -136,7 +138,6 @@ int main(void)
     /* Initialize the library */
     if (!glfwInit())
         return -1;
-
     std::cout << "Window width: " << WIDTH << ". Window height: " << HEIGHT << '\n';
     /* Create a windowed mode window and its OpenGL context */
     window = glfwCreateWindow(WIDTH, HEIGHT, "Rasterizer", NULL, NULL);
@@ -145,6 +146,7 @@ int main(void)
         glfwTerminate();
         return -1;
     }
+    InputManager::Init(window);
 
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
@@ -165,7 +167,6 @@ int main(void)
     
     glm::mat4 proj { glm::perspective(110.0f, static_cast<float>(WIDTH)/HEIGHT, 0.01f, 10000.0f) };
     glm::mat4 view { 1.0f };
-    glm::translate(view, glm::vec3{0.0f, 0.0f, -200.0f});
 
     Shader shader{proj, view};
 
@@ -194,7 +195,10 @@ int main(void)
 
     glm::mat4 model { 1.0f };
 
-    float rotation = 0;
+    float rotation { 0 };
+
+    glm::vec3 camRotation { 0.0f, 0.0f, 0.0f };
+    glm::vec3 camTranslation {0.0f, 0.0f, -2500.0f};
     
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -202,10 +206,32 @@ int main(void)
         frameBuff.Clear();
 
         //input
-        glfwPollEvents();
+        InputManager::Poll(window);
 
         rotation += 0.005f;
-        model = glm::rotate(glm::mat4{1.0f}, rotation, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(glm::mat4{ 1.0f }, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
+        
+        //camera
+        if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
+            camTranslation.x += 0.5f;
+        }
+        if (InputManager::GetKeyState(GLFW_KEY_D) == GLFW_PRESS){
+            camTranslation.x -= 0.5f;
+        }
+        if (InputManager::GetKeyState(GLFW_KEY_W) == GLFW_PRESS){
+            camTranslation.y -= 0.5f;
+        }
+        if (InputManager::GetKeyState(GLFW_KEY_S) == GLFW_PRESS){
+            camTranslation.y += 0.5f;
+        }
+        if (InputManager::GetKeyState(GLFW_KEY_Q) == GLFW_PRESS){
+            camRotation.z -= 0.05f;
+        }
+        if (InputManager::GetKeyState(GLFW_KEY_E) == GLFW_PRESS){
+            camRotation.z += 0.05f;
+        }
+        shader.view = glm::translate(glm::mat4{ 1.0f }, camTranslation);
+        shader.view = glm::rotate(shader.view, camRotation.z, glm::vec3{0.0f, 0.0f, 1.0f});
 
         //render
         frameBuff.DrawTriangle(shader.RasterizeTriangle(JASH, model));

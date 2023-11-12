@@ -18,12 +18,12 @@
     <ClCompile Include="src\Rasterizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Shader.cpp">
+    <ClCompile Include="src\InputManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\Shader.h">
+    <ClInclude Include="inc\InputManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

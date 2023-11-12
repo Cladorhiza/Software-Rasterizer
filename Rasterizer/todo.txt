@@ -1,0 +1,10 @@
+have depth buffer, so only polygons that can be seen will be written
+
+change line drawing algo to Bresenham's Line Drawing Algorithm
+
+polygon clipping
+
+polygon filling with linear interp for colours
+
+texture mapping
+lighting
