@@ -4,6 +4,7 @@
 #include "glfw3.h"
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
+#include "gtx/rotate_vector.hpp"
 
 #include "InputManager.h"
 
@@ -15,7 +16,7 @@ constexpr int HEIGHT = 720;
 constexpr int FRAMEBUFFER_SIZE = WIDTH * HEIGHT;
 constexpr float CLIP_FAR = 500.0f;
 constexpr float CLIP_NEAR = 1.0f;
-constexpr float FOV = 110.f;
+constexpr float FOV = glm::radians(90.0f);
 
 const glm::vec4 BLACK{0.0f, 0.0f, 0.0f, 1.0f};
 const glm::vec4 RED{1.0f, 0.0f, 0.0f, 1.0f};
@@ -34,7 +35,6 @@ struct Triangle{
     Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec4& colour)
         : v1(v1), v2(v2), v3(v3), colour(colour)
     {
-
     }
 
     glm::vec3 v1;
@@ -54,53 +54,42 @@ struct Shader{
     
     }
 
-    Triangle RasterizeTriangle(const Triangle& t, const glm::mat4& model){
+    Triangle RasterizeTriangle(Triangle t, const glm::mat4& model){
         
-        //get in view space
-        Triangle mv;
-        glm::mat4 modelView { view * model };
-
-        mv.v1 = modelView * glm::vec4{t.v1, 1.0f};
-        mv.v2 = modelView * glm::vec4{t.v2, 1.0f};
-        mv.v3 = modelView * glm::vec4{t.v3, 1.0f};
-
+        glm::mat4 mvp { proj * view * model };
+        
         //get in clip space
-        Triangle clip;
+        glm::vec4 v1, v2, v3;
 
-        glm::vec4 c1, c2, c3;
-
-        c1 = proj * glm::vec4{mv.v1, 1.0f};
-        c2 = proj * glm::vec4{mv.v3, 1.0f};
-        c3 = proj * glm::vec4{mv.v2, 1.0f};
-
-        //TODO: clip...
-        //if (clip.v1.z < CLIP_NEAR || clip.v1.z > CLIP_FAR
-        // || clip.v2.z < CLIP_NEAR || clip.v2.z > CLIP_FAR
-        // || clip.v3.z < CLIP_NEAR || clip.v3.z > CLIP_FAR) {
-        //    std::cout << "clipped on the z owo\n";
-        //    return Triangle{};
-        //}
+        v1 = mvp * glm::vec4{t.v1, 1.0f};
+        v2 = mvp * glm::vec4{t.v2, 1.0f};
+        v3 = mvp * glm::vec4{t.v3, 1.0f};
         
-        clip.v1 = c1 / c1.w;
-        clip.v2 = c2 / c2.w;
-        clip.v3 = c3 / c3.w;
+        //if depth from origin in clip space is 0, I'm setting it to -1 to make sure they don't render
+        if (v1.w == 0) v1.w = -1;
+        if (v2.w == 0) v2.w = -1;
+        if (v3.w == 0) v3.w = -1;
+
+       t.v1 = v1 / v1.w;
+       t.v2 = v2 / v2.w;
+       t.v3 = v3 / v3.w;
 
         //get in screen space
-        Triangle screen;
-        screen.v1.x = (clip.v1.x + 1) * (WIDTH / 2);
-        screen.v1.y = (clip.v1.y + 1) * (HEIGHT / 2);
-        screen.v2.x = (clip.v2.x + 1) * (WIDTH / 2);
-        screen.v2.y = (clip.v2.y + 1) * (HEIGHT / 2);
-        screen.v3.x = (clip.v3.x + 1) * (WIDTH / 2);
-        screen.v3.y = (clip.v3.y + 1) * (HEIGHT / 2);
-        
-        screen.v1.z = clip.v1.z;
-        screen.v2.z = clip.v2.z;
-        screen.v3.z = clip.v3.z;
+        t.v1.x = (t.v1.x + 1) * (WIDTH / 2);
+        t.v1.y = (t.v1.y + 1) * (HEIGHT / 2);
+        t.v2.x = (t.v2.x + 1) * (WIDTH / 2);
+        t.v2.y = (t.v2.y + 1) * (HEIGHT / 2);
+        t.v3.x = (t.v3.x + 1) * (WIDTH / 2);
+        t.v3.y = (t.v3.y + 1) * (HEIGHT / 2);
+
+        //keep z ordering info from clip space
+        t.v1.z = v1.z;
+        t.v2.z = v2.z;
+        t.v3.z = v3.z;
 
         //TODO: Lerp colours
-        screen.colour = t.colour;
-        return screen;
+        t.colour = t.colour;
+        return t;
     }
 };
 
@@ -131,9 +120,7 @@ struct FrameBuffer{
         float dz{ v1.z - v2.z };
         float step;
 
-        if (abs(dx) > abs(dy)){
-            step = abs(dx);
-        }
+        if (abs(dx) > abs(dy)) step = abs(dx);
         else step = abs(dy);
         
         float xInc { dx / step };
@@ -205,6 +192,7 @@ int main(void)
     }
     
     glm::mat4 proj { glm::perspective(FOV, static_cast<float>(WIDTH)/HEIGHT, CLIP_NEAR, CLIP_FAR) };
+    //glm::mat4 proj { glm::ortho(-100.0f, 100.0f, 100.0f, 100.0f)};
     glm::mat4 view { 1.0f };
 
     Shader shader{proj, view};
@@ -231,8 +219,8 @@ int main(void)
 
     float rotation { 0 };
 
-    glm::vec3 camRotation { 0.0f, 0.0f, 0.0f };
-    glm::vec3 camTranslation {0.0f, 0.0f, -5.0f};
+    glm::vec3 camForward { 0.0f, 0.0f, -1.0f };
+    glm::vec3 camTranslation {0.0f, 0.0f, 100.0f};
     
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -252,19 +240,19 @@ int main(void)
         
         //camera
         if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
-            camTranslation.x += 0.5f;
+            camTranslation.x -= 5.f;
             //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_D) == GLFW_PRESS){
-            camTranslation.x -= 0.5f;
+            camTranslation.x += 5.f;
             //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_W) == GLFW_PRESS){
-            camTranslation.y -= 0.5f;
+            camTranslation.y += 5.f;
             //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_S) == GLFW_PRESS){
-            camTranslation.y += 0.5f;
+            camTranslation.y -= 5.f;
             //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_X) == GLFW_PRESS){
@@ -282,23 +270,19 @@ int main(void)
             //std::cout << "perspective: " << perspective << '\n';
         }
         if (InputManager::GetKeyState(GLFW_KEY_Q) == GLFW_PRESS){
-            camRotation.y -= 0.005f;
+            camForward = glm::rotate(camForward, 0.05f, glm::vec3{0.0f, 1.0f, 0.0f});
             //std::cout << camRotation.y << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_E) == GLFW_PRESS){
-            camRotation.y += 0.005f;
+            camForward = glm::rotate(camForward, -0.05f, glm::vec3{0.0f, 1.0f, 0.0f});
             //std::cout << camRotation.y << "\n";
         }
         
-        shader.view = glm::mat4{1.0f};
-        glm::mat4 rotation {glm::rotate(glm::mat4{ 1.0f }, camRotation.y, glm::vec3{0.0f, 1.0f, 0.0f})};
-        glm::mat4 translation {glm::translate(glm::mat4{ 1.0f }, camTranslation)};
-        
-        shader.view = rotation * translation * shader.view;
+        shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
 
         //render
         frameBuff.DrawTriangle(shader.RasterizeTriangle(tri1, model));
-        //frameBuff.DrawTriangle(shader.RasterizeTriangle(tri2, model));
+        frameBuff.DrawTriangle(shader.RasterizeTriangle(tri2, model));
 
 
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
