@@ -161,13 +161,15 @@ struct FrameBuffer{
             
             if (abs(dx) > abs(dy)) step = abs(dx);
             else step = abs(dy);
-        
-            float xInc { dx / step };
-            float yInc { dy / step };
-            float zInc { dz / step };
+                        
+            float xInc { (step == 0)? 0 : dx / step };
+            float yInc { (step == 0)? 0 : dy / step };
+            float zInc { (step == 0)? 0 : dz / step };
             float z { v2.z };
 
             for (int i{ 0 }; i <= step; i++){
+
+                //TODO: potential floating point errors causing indexes to be out of bounds
                 uint16_t xIndex { static_cast<uint16_t>(round(v2.x + (xInc * i))) };
                 uint16_t yIndex { static_cast<uint16_t>(round(v2.y + (yInc * i))) };
                 int buffIndex { xIndex + yIndex * WIDTH };
@@ -205,8 +207,6 @@ struct FrameBuffer{
             
                 Colours[buffIndex] = t.colour;
             }
-
-
         }
 
         //FILL POLYGON
@@ -222,12 +222,14 @@ struct FrameBuffer{
 
             for (int j { buffIndexStart + 1 }; j < buffIndexEnd; j++){
                 
+                int temp { j + ((i + yLower) * WIDTH) };
+
                 //write pixel if depth is lower
-                if (Depth[j] > zInterp) {
+                if (Depth[temp] > zInterp) {
                     
-                    Depth[j] = zInterp;
+                    Depth[temp] = zInterp;
                     zInterp += zStep;
-                    int temp {j + (i + yLower) * WIDTH};
+                    
                     Colours[temp] = t.colour;
                 }
 
@@ -302,7 +304,7 @@ int main(void)
     float rotation { 0 };
 
     glm::vec3 camForward { 0.0f, 0.0f, -1.0f };
-    glm::vec3 camTranslation {0.0f, 0.0f, 100.0f};
+    glm::vec3 camTranslation {0.0f, 0.0f, 200.0f};
     
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -365,7 +367,6 @@ int main(void)
         //render
         frameBuff.DrawTriangle(shader.ToScreenSpace(tri1, model));
         frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
-
 
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
         
