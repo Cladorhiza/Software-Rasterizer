@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 constexpr int WIDTH = 1280;
 constexpr int HEIGHT = 720;
@@ -180,6 +181,7 @@ struct FrameBuffer{
                 //TODO: replace this with real clipping, as it could be that coordinates are outside screen but the resulting lines/faces are in the screen
                 if (yIndex < 0 || yIndex >= HEIGHT) continue;
 
+                //TODO: overflows at high values
                 pair<uint16_t,uint16_t>& xLine { xLineIndexes[lineValIndex] };
                 pair<float,float>& xLineD { xLineDepths[lineValIndex] };
 
@@ -366,7 +368,7 @@ int main(void)
 
         //render
         frameBuff.DrawTriangle(shader.ToScreenSpace(tri1, model));
-        frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
+        //frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
 
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
         
