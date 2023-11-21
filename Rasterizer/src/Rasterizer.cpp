@@ -13,6 +13,10 @@
 
 constexpr int WIDTH = 1280;
 constexpr int HEIGHT = 720;
+//triangle drawing cannot draw larger than 2^16-1
+static_assert(WIDTH < (2 << 15) - 1);
+static_assert(HEIGHT < (2 << 15) - 1);
+
 constexpr int FRAMEBUFFER_SIZE = WIDTH * HEIGHT;
 constexpr float CLIP_FAR = 500.0f;
 constexpr float CLIP_NEAR = 1.0f;
@@ -54,7 +58,7 @@ struct Shader{
     
     }
 
-    Triangle RasterizeTriangle(Triangle t, const glm::mat4& model){
+    Triangle ToScreenSpace(Triangle t, const glm::mat4& model){
         
         glm::mat4 mvp { proj * view * model };
         
@@ -70,9 +74,9 @@ struct Shader{
         if (v2.w == 0) v2.w = -1;
         if (v3.w == 0) v3.w = -1;
 
-       t.v1 = v1 / v1.w;
-       t.v2 = v2 / v2.w;
-       t.v3 = v3 / v3.w;
+        t.v1 = v1 / v1.w;
+        t.v2 = v2 / v2.w;
+        t.v3 = v3 / v3.w;
 
         //get in screen space
         t.v1.x = (t.v1.x + 1) * (WIDTH / 2);
@@ -109,50 +113,128 @@ struct FrameBuffer{
         }
         //in separate loops for cache locality.. at least that's the idea
     	for (int i{0}; i < FRAMEBUFFER_SIZE; i++){
-            Depth[i] = -1.0f;
+            Depth[i] = CLIP_FAR + 1.0f;
         }
     }
 
-    void DrawLine(const glm::vec3& v1, const glm::vec3& v2, const glm::vec4& colour){
-        
-        float dx{ v1.x - v2.x };
-        float dy{ v1.y - v2.y };
-        float dz{ v1.z - v2.z };
-        float step;
-
-        if (abs(dx) > abs(dy)) step = abs(dx);
-        else step = abs(dy);
-        
-        float xInc { dx / step };
-        float yInc { dy / step };
-        float zInc { dz / step };
-        float z { v2.z };
-
-        for (int i{ 0 }; i <= step; i++){
-            int xIndex { static_cast<int>(round(v2.x + (xInc * i))) };
-            int yIndex { static_cast<int>(round(v2.y + (yInc * i))) };
-            int buffIndex { xIndex + yIndex * WIDTH };                                                                                     
-            
-            z += zInc;
-            //TODO: replace this with real clipping, as it could be that coordinates are outside screen but the resulting lines/faces are in the screen
-            if (xIndex < 0 || xIndex >= WIDTH || yIndex < 0 || yIndex >= HEIGHT /* || z < -1.0f || z > 1.0f || Depth[buffIndex] < z*/) continue;
-
-            Depth[buffIndex] = z;
-            
-            Colours[buffIndex] = colour;
-        }
-    }
-
+    /// <summary>
+    /// Expects a triangle already in screen space. 
+    /// Line drawing done with DDA algorithm.
+    /// </summary>
+    /// <param name="t">The triangle to draw to the buffer</param>
     void DrawTriangle(const Triangle& t){
-        DrawLine(t.v1, t.v2, t.colour);
-        DrawLine(t.v2, t.v3, t.colour);
-        DrawLine(t.v3, t.v1, t.colour);
 
-        //TODO: FILL POLYGON
+        using namespace std;
+
+        glm::vec3 verts[]{t.v1, t.v2, t.v2, t.v3, t.v3, t.v1};
+
+        //storage for pixels drawn in specific format
+        vector<pair<uint16_t,uint16_t>> xLineIndexes;
+        vector<pair<float,float>> xLineDepths;
+        //information regarding bounds of the triangle, want the bounding box to also be bounded by the window dimensions as there's no reason to store x or y values outside of the screen
+        int xUpper { min(static_cast<int>(max({round(t.v1.x), round(t.v2.x), round(t.v3.x)})), WIDTH - 1) };
+        int yUpper { min(static_cast<int>(max({round(t.v1.y), round(t.v2.y), round(t.v3.y)})), HEIGHT - 1)};
+        int xLower { max(static_cast<int>(min({round(t.v1.x), round(t.v2.x), round(t.v3.x)})), 0) };
+        int yLower { max(static_cast<int>(min({round(t.v1.y), round(t.v2.y), round(t.v3.y)})), 0) };
+        //each vector represents the triangles x points on the lines of the triangle
+        xLineIndexes.resize(abs(yUpper - yLower) + 1);
+        xLineDepths.resize(abs(yUpper - yLower) + 1);
+        //ensure that any x value present will be less than the initial minimum x
+        for (auto& [xMin, _ ] : xLineIndexes){
+            xMin = WIDTH - 1;
+        }
+        //make larger than possible to mark invalid values
+        for (auto& [xDMin, xDMax ] : xLineDepths){
+            xDMin = CLIP_FAR + 1.0f;
+            xDMax = CLIP_NEAR - 1.0f;
+        }
+
+        for (int i {0}; i < 6; i+=2){
+        
+            glm::vec3 v1 { verts[i] };
+            glm::vec3 v2 { verts[i+1] };
+
+            float dx{ v1.x - v2.x };
+            float dy{ v1.y - v2.y };
+            float dz{ v1.z - v2.z };
+            float step;
+            
+            if (abs(dx) > abs(dy)) step = abs(dx);
+            else step = abs(dy);
+        
+            float xInc { dx / step };
+            float yInc { dy / step };
+            float zInc { dz / step };
+            float z { v2.z };
+
+            for (int i{ 0 }; i <= step; i++){
+                uint16_t xIndex { static_cast<uint16_t>(round(v2.x + (xInc * i))) };
+                uint16_t yIndex { static_cast<uint16_t>(round(v2.y + (yInc * i))) };
+                int buffIndex { xIndex + yIndex * WIDTH };
+
+                int lineValIndex { yIndex - yLower };
+                z += zInc;
+
+                //TODO: replace this with real clipping, as it could be that coordinates are outside screen but the resulting lines/faces are in the screen
+                if (yIndex < 0 || yIndex >= HEIGHT) continue;
+
+                pair<uint16_t,uint16_t>& xLine { xLineIndexes[lineValIndex] };
+                pair<float,float>& xLineD { xLineDepths[lineValIndex] };
+
+                //TODO: depth won't work properly for partial triangles, because these depth values are for the offscreen coordinate, not the one I'm replacing it with
+                if (xIndex < 0) {
+                    xLine.first = 0;
+                    xLineD.first = z;
+                    continue;
+                }
+                else if (xIndex >= WIDTH) {
+                    xLine.second = WIDTH-1;
+                    xLineD.second = z;
+                    continue;
+                }
+
+                xLine.first = min(xIndex, xLine.first);
+                xLine.second = max(xIndex, xLine.second);
+                xLineD.first = min(z, xLineD.first);
+                xLineD.second = max(z, xLineD.second);
+
+                //TODO: check depth values are less than near clip plane/far plane
+                if (Depth[buffIndex] < z) continue;
+
+                Depth[buffIndex] = z;
+            
+                Colours[buffIndex] = t.colour;
+            }
+
+
+        }
+
+        //FILL POLYGON
+        for (int i { 0 }; i < xLineIndexes.size(); i++){
+            
+            int buffIndexStart { xLineIndexes[i].first };
+            int buffIndexEnd { xLineIndexes[i].second };
+
+            float zStart { xLineDepths[i].first };
+            float zEnd { xLineDepths[i].second };
+            float zInterp { zStart };
+            float zStep { (zEnd - zStart) / (buffIndexEnd - buffIndexStart) }; //TODO: potential div by 0
+
+            for (int j { buffIndexStart + 1 }; j < buffIndexEnd; j++){
+                
+                //write pixel if depth is lower
+                if (Depth[j] > zInterp) {
+                    
+                    Depth[j] = zInterp;
+                    zInterp += zStep;
+                    int temp {j + (i + yLower) * WIDTH};
+                    Colours[temp] = t.colour;
+                }
+
+                
+            }
+        }
     }
-
-    
-
 };
 
 int main(void)
@@ -281,8 +363,8 @@ int main(void)
         shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
 
         //render
-        frameBuff.DrawTriangle(shader.RasterizeTriangle(tri1, model));
-        frameBuff.DrawTriangle(shader.RasterizeTriangle(tri2, model));
+        frameBuff.DrawTriangle(shader.ToScreenSpace(tri1, model));
+        frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
 
 
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
