@@ -30,22 +30,45 @@ const glm::vec4 BLUE{0.0f, 0.0f, 1.0f, 1.0f};
 const glm::vec4 YELLOW{1.0f, 1.0f, 0.0f, 1.0f};
 const glm::vec4 BURGUNDY{0.5f, 0.0f, 0.125f, 1.0f};
 
+const glm::vec4 CLEAR_COLOUR{BLACK};
+
+//Linear interpolation
+inline float Lerp(float x1, float x2, float ratio) {
+    float range = x2 - x1;
+    return x1 + (range * ratio);
+}
+
+//barycentric weights TODO: vec2 overload
+inline glm::vec3 BWeights(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& p){
+
+    float det { ((v2.y - v3.y)*(v1.x - v3.x) + (v3.x - v2.x)*(v1.y - v3.y)) };
+
+    float w1 { ((v2.y - v3.y)*(p.x - v3.x) + (v3.x - v2.x)*(p.y - v3.y)) / det };
+    float w2 { ((v3.y - v1.y)*(p.x - v3.x) + (v1.x - v3.x)*(p.y - v3.y)) / det };
+    float w3 { 1 - w1 - w2 };
+
+    return { w1, w2, w3};
+}
+
+
 struct Triangle{
-
-    Triangle()
-        : v1(), v2(), v3(), colour()
-    {
-    }
-
-    Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec4& colour)
-        : v1(v1), v2(v2), v3(v3), colour(colour)
-    {
-    }
 
     glm::vec3 v1;
     glm::vec3 v2;
     glm::vec3 v3;
-    glm::vec4 colour;
+    glm::vec4 c1;
+    glm::vec4 c2;
+    glm::vec4 c3;
+
+    Triangle()
+        : v1(), v2(), v3(), c1(), c2(), c3()
+    {
+    }
+
+    Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec4& c1, const glm::vec4& c2, const glm::vec4& c3)
+        : v1(v1), v2(v2), v3(v3), c1(c1), c2(c2), c3(c3)
+    {
+    }
 };
 
 struct Shader{
@@ -92,8 +115,6 @@ struct Shader{
         t.v2.z = v2.z;
         t.v3.z = v3.z;
 
-        //TODO: Lerp colours
-        t.colour = t.colour;
         return t;
     }
 };
@@ -110,11 +131,11 @@ struct FrameBuffer{
 
     void Clear(){
         for (int i{0}; i < FRAMEBUFFER_SIZE; i++){
-            Colours[i] = BLACK;
+            Colours[i] = CLEAR_COLOUR;
         }
         //in separate loops for cache locality.. at least that's the idea
     	for (int i{0}; i < FRAMEBUFFER_SIZE; i++){
-            Depth[i] = CLIP_FAR + 1.0f;
+            Depth[i] = CLIP_FAR;
         }
     }
 
@@ -207,7 +228,8 @@ struct FrameBuffer{
 
                 Depth[buffIndex] = z;
             
-                Colours[buffIndex] = t.colour;
+                glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {(v2.x + (xInc * i)), (v2.y + (yInc * i)), 0.0f}) };
+                Colours[buffIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
             }
         }
 
@@ -232,10 +254,10 @@ struct FrameBuffer{
                     Depth[temp] = zInterp;
                     zInterp += zStep;
                     
-                    Colours[temp] = t.colour;
+                    //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
+                    glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {j, i + yLower, 0.0f}) };
+                    Colours[temp] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
                 }
-
-                
             }
         }
     }
@@ -274,7 +296,7 @@ int main(void)
 	memset(frameBuff.Colours.data(), 0, FRAMEBUFFER_SIZE * sizeof(glm::vec4));
 
     for (int i{0}; i < (FRAMEBUFFER_SIZE); i++){
-        frameBuff.Depth[i] = -1;
+        frameBuff.Depth[i] = CLIP_FAR;
     }
     
     glm::mat4 proj { glm::perspective(FOV, static_cast<float>(WIDTH)/HEIGHT, CLIP_NEAR, CLIP_FAR) };
@@ -288,14 +310,18 @@ int main(void)
      glm::vec3 { -200.0f,  -50.0f,  0.0f },
      glm::vec3 { 0.0f, 50.0f, 0.0f },
      glm::vec3 { 200.0f, -50.0f,  0.0f },
-     YELLOW
+     GREEN,
+     BLUE,
+     RED
     };
 
     Triangle tri2{
      glm::vec3 { 25.f,  25.0f,   25.0f },
      glm::vec3 { 25.0f, 25.0f, -25.0f },
      glm::vec3 { -50.0f, -50.0f,  0.0f },
-     GREEN
+     BURGUNDY,
+     RED,
+     BLUE
     };
 
 
