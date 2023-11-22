@@ -42,13 +42,15 @@ inline float Lerp(float x1, float x2, float ratio) {
 inline glm::vec3 BWeights(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& p){
 
     float det { ((v2.y - v3.y)*(v1.x - v3.x) + (v3.x - v2.x)*(v1.y - v3.y)) };
+    //TODO: dunno if any other fix better
+    if (det == 0.0f) det == 0.00000000001f;
 
     float w1 { ((v2.y - v3.y)*(p.x - v3.x) + (v3.x - v2.x)*(p.y - v3.y)) / det };
     float w2 { ((v3.y - v1.y)*(p.x - v3.x) + (v1.x - v3.x)*(p.y - v3.y)) / det };
     float w3 { 1 - w1 - w2 };
 
     //barycentric weights must add up to essentially 1
-    assert(abs(1 - w1 - w2 - w3) <= 0.00005f );
+    //TODO: When looking at a tri side on, it's screenspace coords could have x and/or y being the same for all points, seems to cause problems.
     return { w1, w2, w3};
 }
 
@@ -150,7 +152,7 @@ struct FrameBuffer{
         if (Depth[bufferIndex] > pixelDepth) {
                     
             Depth[bufferIndex] = pixelDepth;
-                    
+                     
             //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
             Colours[bufferIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
         }
@@ -202,7 +204,7 @@ struct FrameBuffer{
 
             for (int i{ 0 }; i <= step; i++){
 
-                //TODO: potential floating point errors causing indexes to be out of bounds
+                //TODO: potential floating point/overflow errors causing indexes to be out of bounds
                 uint16_t xIndex { static_cast<uint16_t>(round(v2.x + (xInc * i))) };
                 uint16_t yIndex { static_cast<uint16_t>(round(v2.y + (yInc * i))) };
                 int buffIndex { xIndex + yIndex * WIDTH };
@@ -380,8 +382,9 @@ int main(void)
 
         //render
         frameBuff.DrawTriangle(shader.ToScreenSpace(tri1, model));
-        //frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
+        frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
 
+        //glDrawPixels(WIDTH, HEIGHT, GL_RED, GL_FLOAT, frameBuff.Depth.data());
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
         
         glfwSwapBuffers(window);
