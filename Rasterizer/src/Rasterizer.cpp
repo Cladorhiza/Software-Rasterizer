@@ -47,6 +47,8 @@ inline glm::vec3 BWeights(const glm::vec3& v1, const glm::vec3& v2, const glm::v
     float w2 { ((v3.y - v1.y)*(p.x - v3.x) + (v1.x - v3.x)*(p.y - v3.y)) / det };
     float w3 { 1 - w1 - w2 };
 
+    //barycentric weights must add up to essentially 1
+    assert(abs(1 - w1 - w2 - w3) <= 0.00005f );
     return { w1, w2, w3};
 }
 
@@ -139,6 +141,23 @@ struct FrameBuffer{
         }
     }
 
+    inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex){
+    
+        glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
+        float pixelDepth { t.v1.z * weights.x + t.v2.y * weights.x + t.v3.z * weights.z };
+
+        //write pixel if depth is lower
+        if (Depth[bufferIndex] > pixelDepth) {
+                    
+            Depth[bufferIndex] = pixelDepth;
+                    
+            //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
+            Colours[bufferIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
+        }
+    
+    
+    }
+
     /// <summary>
     /// Expects a triangle already in screen space. 
     /// Line drawing done with DDA algorithm.
@@ -152,7 +171,6 @@ struct FrameBuffer{
 
         //storage for pixels drawn in specific format
         vector<pair<uint16_t,uint16_t>> xLineIndexes;
-        vector<pair<float,float>> xLineDepths;
         //information regarding bounds of the triangle, want the bounding box to also be bounded by the window dimensions as there's no reason to store x or y values outside of the screen
         int xUpper { min(static_cast<int>(max({round(t.v1.x), round(t.v2.x), round(t.v3.x)})), WIDTH - 1) };
         int yUpper { min(static_cast<int>(max({round(t.v1.y), round(t.v2.y), round(t.v3.y)})), HEIGHT - 1)};
@@ -160,15 +178,9 @@ struct FrameBuffer{
         int yLower { max(static_cast<int>(min({round(t.v1.y), round(t.v2.y), round(t.v3.y)})), 0) };
         //each vector represents the triangles x points on the lines of the triangle
         xLineIndexes.resize(abs(yUpper - yLower) + 1);
-        xLineDepths.resize(abs(yUpper - yLower) + 1);
         //ensure that any x value present will be less than the initial minimum x
         for (auto& [xMin, _ ] : xLineIndexes){
             xMin = WIDTH - 1;
-        }
-        //make larger than possible to mark invalid values
-        for (auto& [xDMin, xDMax ] : xLineDepths){
-            xDMin = CLIP_FAR + 1.0f;
-            xDMax = CLIP_NEAR - 1.0f;
         }
 
         for (int i {0}; i < 6; i+=2){
@@ -187,7 +199,6 @@ struct FrameBuffer{
             float xInc { (step == 0)? 0 : dx / step };
             float yInc { (step == 0)? 0 : dy / step };
             float zInc { (step == 0)? 0 : dz / step };
-            float z { v2.z };
 
             for (int i{ 0 }; i <= step; i++){
 
@@ -197,39 +208,27 @@ struct FrameBuffer{
                 int buffIndex { xIndex + yIndex * WIDTH };
 
                 int lineValIndex { yIndex - yLower };
-                z += zInc;
 
                 //TODO: replace this with real clipping, as it could be that coordinates are outside screen but the resulting lines/faces are in the screen
                 if (yIndex < 0 || yIndex >= HEIGHT) continue;
 
                 //TODO: overflows at high values
                 pair<uint16_t,uint16_t>& xLine { xLineIndexes[lineValIndex] };
-                pair<float,float>& xLineD { xLineDepths[lineValIndex] };
 
                 //TODO: depth won't work properly for partial triangles, because these depth values are for the offscreen coordinate, not the one I'm replacing it with
                 if (xIndex < 0) {
                     xLine.first = 0;
-                    xLineD.first = z;
                     continue;
                 }
                 else if (xIndex >= WIDTH) {
                     xLine.second = WIDTH-1;
-                    xLineD.second = z;
                     continue;
                 }
 
                 xLine.first = min(xIndex, xLine.first);
                 xLine.second = max(xIndex, xLine.second);
-                xLineD.first = min(z, xLineD.first);
-                xLineD.second = max(z, xLineD.second);
 
-                //TODO: check depth values are less than near clip plane/far plane
-                if (Depth[buffIndex] < z) continue;
-
-                Depth[buffIndex] = z;
-            
-                glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {(v2.x + (xInc * i)), (v2.y + (yInc * i)), 0.0f}) };
-                Colours[buffIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
+                DrawPixel(t, {xIndex, yIndex}, buffIndex);
             }
         }
 
@@ -239,25 +238,12 @@ struct FrameBuffer{
             int buffIndexStart { xLineIndexes[i].first };
             int buffIndexEnd { xLineIndexes[i].second };
 
-            float zStart { xLineDepths[i].first };
-            float zEnd { xLineDepths[i].second };
-            float zInterp { zStart };
-            float zStep { (zEnd - zStart) / (buffIndexEnd - buffIndexStart) }; //TODO: potential div by 0
-
             for (int j { buffIndexStart + 1 }; j < buffIndexEnd; j++){
                 
-                int temp { j + ((i + yLower) * WIDTH) };
+                int colourIndex { j + ((i + yLower) * WIDTH) };
 
-                //write pixel if depth is lower
-                if (Depth[temp] > zInterp) {
-                    
-                    Depth[temp] = zInterp;
-                    zInterp += zStep;
-                    
-                    //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
-                    glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {j, i + yLower, 0.0f}) };
-                    Colours[temp] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
-                }
+                DrawPixel(t, { j, i + yLower }, colourIndex);
+                
             }
         }
     }
