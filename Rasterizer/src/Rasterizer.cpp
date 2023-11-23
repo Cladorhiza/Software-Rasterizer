@@ -12,8 +12,8 @@
 #include <vector>
 #include <algorithm>
 
-constexpr int WIDTH = 1280;
-constexpr int HEIGHT = 720;
+constexpr int WIDTH = 960;
+constexpr int HEIGHT = 540;
 //triangle drawing cannot draw larger than 2^16-1
 static_assert(WIDTH < (2 << 15) - 1);
 static_assert(HEIGHT < (2 << 15) - 1);
@@ -146,7 +146,7 @@ struct FrameBuffer{
     inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex){
     
         glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
-        float pixelDepth { t.v1.z * weights.x + t.v2.y * weights.x + t.v3.z * weights.z };
+        float pixelDepth { t.v1.z * weights.x + t.v2.z * weights.y + t.v3.z * weights.z };
 
         //write pixel if depth is lower
         if (Depth[bufferIndex] > pixelDepth) {
@@ -174,10 +174,10 @@ struct FrameBuffer{
         //storage for pixels drawn in specific format
         vector<pair<uint16_t,uint16_t>> xLineIndexes;
         //information regarding bounds of the triangle, want the bounding box to also be bounded by the window dimensions as there's no reason to store x or y values outside of the screen
-        int xUpper { min(static_cast<int>(max({round(t.v1.x), round(t.v2.x), round(t.v3.x)})), WIDTH - 1) };
-        int yUpper { min(static_cast<int>(max({round(t.v1.y), round(t.v2.y), round(t.v3.y)})), HEIGHT - 1)};
-        int xLower { max(static_cast<int>(min({round(t.v1.x), round(t.v2.x), round(t.v3.x)})), 0) };
-        int yLower { max(static_cast<int>(min({round(t.v1.y), round(t.v2.y), round(t.v3.y)})), 0) };
+        int xUpper { min(static_cast<int>(max({floor(t.v1.x), floor(t.v2.x), floor(t.v3.x)})), WIDTH - 1) };
+        int yUpper { min(static_cast<int>(max({floor(t.v1.y), floor(t.v2.y), floor(t.v3.y)})), HEIGHT - 1)};
+        int xLower { max(static_cast<int>(min({floor(t.v1.x), floor(t.v2.x), floor(t.v3.x)})), 0) };
+        int yLower { max(static_cast<int>(min({floor(t.v1.y), floor(t.v2.y), floor(t.v3.y)})), 0) };
         //each vector represents the triangles x points on the lines of the triangle
         xLineIndexes.resize(abs(yUpper - yLower) + 1);
         //ensure that any x value present will be less than the initial minimum x
@@ -200,13 +200,12 @@ struct FrameBuffer{
                         
             float xInc { (step == 0)? 0 : dx / step };
             float yInc { (step == 0)? 0 : dy / step };
-            float zInc { (step == 0)? 0 : dz / step };
 
             for (int i{ 0 }; i <= step; i++){
 
                 //TODO: potential floating point/overflow errors causing indexes to be out of bounds
-                uint16_t xIndex { static_cast<uint16_t>(round(v2.x + (xInc * i))) };
-                uint16_t yIndex { static_cast<uint16_t>(round(v2.y + (yInc * i))) };
+                uint16_t xIndex { static_cast<uint16_t>(floor(v2.x + (xInc * i))) };
+                uint16_t yIndex { static_cast<uint16_t>(floor(v2.y + (yInc * i))) };
                 int buffIndex { xIndex + yIndex * WIDTH };
 
                 int lineValIndex { yIndex - yLower };
@@ -245,7 +244,6 @@ struct FrameBuffer{
                 int colourIndex { j + ((i + yLower) * WIDTH) };
 
                 DrawPixel(t, { j, i + yLower }, colourIndex);
-                
             }
         }
     }
@@ -294,23 +292,117 @@ int main(void)
     Shader shader{proj, view};
 
 
-    Triangle tri1{
-     glm::vec3 { -200.0f,  -50.0f,  0.0f },
-     glm::vec3 { 0.0f, 50.0f, 0.0f },
-     glm::vec3 { 200.0f, -50.0f,  0.0f },
-     GREEN,
-     BLUE,
-     RED
+    Triangle tris[]{
+        //front
+{
+        glm::vec3 {-100.0f,-100.0f, 100.0f },
+        glm::vec3 { 100.0f,-100.0f, 100.0f },
+        glm::vec3 { 100.0f, 100.0f, 100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+{
+
+        glm::vec3 {-100.0f,-100.0f, 100.0f },
+        glm::vec3 {-100.0f, 100.0f, 100.0f },
+        glm::vec3 { 100.0f, 100.0f, 100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+        //left
+{
+        glm::vec3 {-100.0f, 100.0f, 100.0f },
+        glm::vec3 {-100.0f,-100.0f, 100.0f },
+        glm::vec3 {-100.0f,-100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+     
+{
+        glm::vec3 {-100.0f, 100.0f, 100.0f },
+        glm::vec3 {-100.0f, 100.0f,-100.0f },
+        glm::vec3 {-100.0f,-100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+        //right
+{
+        glm::vec3 { 100.0f, 100.0f, 100.0f },
+        glm::vec3 { 100.0f, 100.0f,-100.0f },
+        glm::vec3 { 100.0f,-100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+     
+{
+        glm::vec3 { 100.0f, 100.0f, 100.0f },
+        glm::vec3 { 100.0f,-100.0f, 100.0f },
+        glm::vec3 { 100.0f,-100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+        //top
+{
+        glm::vec3 { 100.0f, 100.0f, 100.0f },
+        glm::vec3 {-100.0f, 100.0f, 100.0f },
+        glm::vec3 {-100.0f, 100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+     
+{
+        glm::vec3 { 100.0f, 100.0f, 100.0f },
+        glm::vec3 { 100.0f, 100.0f,-100.0f },
+        glm::vec3 {-100.0f, 100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+        //bottom
+{
+        glm::vec3 { 100.0f,-100.0f, 100.0f },
+        glm::vec3 { 100.0f,-100.0f,-100.0f },
+        glm::vec3 {-100.0f,-100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+     
+{
+        glm::vec3 { 100.0f,-100.0f, 100.0f },
+        glm::vec3 {-100.0f,-100.0f, 100.0f },
+        glm::vec3 {-100.0f,-100.0f,-100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+        //back
+{
+        glm::vec3 { 100.0f, 100.0f, -100.0f },
+        glm::vec3 { 100.0f,-100.0f, -100.0f },
+        glm::vec3 {-100.0f,-100.0f, -100.0f },
+        GREEN,
+        BLUE,
+        RED,
+},
+     
+{
+        glm::vec3 { 100.0f, 100.0f, -100.0f },
+        glm::vec3 {-100.0f, 100.0f, -100.0f },
+        glm::vec3 {-100.0f,-100.0f, -100.0f },
+        GREEN,
+        BLUE,
+        RED
+}
     };
 
-    Triangle tri2{
-     glm::vec3 { 25.f,  25.0f,   25.0f },
-     glm::vec3 { 25.0f, 25.0f, -25.0f },
-     glm::vec3 { -50.0f, -50.0f,  0.0f },
-     BURGUNDY,
-     RED,
-     BLUE
-    };
 
 
     float perspective = FOV;
@@ -335,54 +427,44 @@ int main(void)
             break;
         }
 
-        rotation += 0.005f;
-        //model = glm::rotate(glm::mat4{ 1.0f }, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
+        rotation += 0.05f;
+        model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 100.f*sin(rotation), 0.0f});
+        model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
         
         //camera
         if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
             camTranslation.x -= 5.f;
-            //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_D) == GLFW_PRESS){
             camTranslation.x += 5.f;
-            //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_W) == GLFW_PRESS){
             camTranslation.y += 5.f;
-            //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_S) == GLFW_PRESS){
             camTranslation.y -= 5.f;
-            //std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_X) == GLFW_PRESS){
         	camTranslation.z -= 5.f;
             std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
-            //perspective += 0.001f;
-            //shader.proj = glm::perspective(perspective, static_cast<float>(WIDTH)/HEIGHT, CLIP_NEAR, CLIP_FAR);
-            //std::cout << "perspective: " << perspective << '\n';
         }
         if (InputManager::GetKeyState(GLFW_KEY_C) == GLFW_PRESS){
             camTranslation.z += 5.f;
             std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
-            //perspective -= 0.001f;
-            //shader.proj = glm::perspective(perspective, static_cast<float>(WIDTH)/HEIGHT, CLIP_NEAR, CLIP_FAR);
-            //std::cout << "perspective: " << perspective << '\n';
         }
         if (InputManager::GetKeyState(GLFW_KEY_Q) == GLFW_PRESS){
             camForward = glm::rotate(camForward, 0.05f, glm::vec3{0.0f, 1.0f, 0.0f});
-            //std::cout << camRotation.y << "\n";
         }
         if (InputManager::GetKeyState(GLFW_KEY_E) == GLFW_PRESS){
             camForward = glm::rotate(camForward, -0.05f, glm::vec3{0.0f, 1.0f, 0.0f});
-            //std::cout << camRotation.y << "\n";
         }
         
         shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
 
         //render
-        frameBuff.DrawTriangle(shader.ToScreenSpace(tri1, model));
-        frameBuff.DrawTriangle(shader.ToScreenSpace(tri2, model));
+        for (int i { 0 }; i < 12; i++){
+            frameBuff.DrawTriangle(shader.ToScreenSpace(tris[i], model));
+        }
 
         //glDrawPixels(WIDTH, HEIGHT, GL_RED, GL_FLOAT, frameBuff.Depth.data());
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
