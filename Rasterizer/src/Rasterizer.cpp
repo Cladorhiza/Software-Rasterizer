@@ -5,8 +5,6 @@
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 #include "gtx/rotate_vector.hpp"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 //proj
 #include "InputManager.h"
 #include "CoreTypes.h"
@@ -179,9 +177,9 @@ Triangle tris[]{
 
 int main(void)
 {
+    //Init
     GLFWwindow* window;
 
-    /* Initialize the library */
     if (!glfwInit())
         return -1;
     std::cout << "Window width: " << WIDTH << ". Window height: " << HEIGHT << '\n';
@@ -205,6 +203,11 @@ int main(void)
     }
     fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 
+    //~Init
+
+
+    //Application
+
     FrameBuffer frameBuff { WIDTH, HEIGHT };
 
 	memset(frameBuff.Colours.data(), 0, FRAMEBUFFER_SIZE * sizeof(glm::vec4));
@@ -219,20 +222,8 @@ int main(void)
     Shader shader{proj, view};
 
     
-    Texture wood_front;
-    Texture wood_top;
-    //scoped to destroy unwanted pointer
-    {
-        unsigned char* pic = stbi_load("res/textures/wood_side.png", &wood_front.width, &wood_front.height, &wood_front.channels, 0);
-        wood_front.image.resize(wood_front.width * wood_front.height * wood_front.channels);
-        memcpy(wood_front.image.data(), pic, wood_front.width * wood_front.height * wood_front.channels * sizeof(unsigned char));
-        free(pic);
-
-        pic = stbi_load("res/textures/wood_top.png", &wood_top.width, &wood_top.height, &wood_top.channels, 0);
-        wood_top.image.resize(wood_top.width * wood_top.height * wood_top.channels);
-        memcpy(wood_top.image.data(), pic, wood_top.width * wood_top.height * wood_top.channels * sizeof(unsigned char));
-        free(pic);
-    }
+    Texture wood_front{ "res/textures/wood_side.png" };
+    Texture wood_top{ "res/textures/wood_top.png" };
 
     glm::mat4 model { 1.0f };
 

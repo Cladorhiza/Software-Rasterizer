@@ -1,9 +1,11 @@
 #pragma once
 #include "glm.hpp"
+#include "stb_image.h"
 
 #include "Maths.h"
 
 #include <vector>
+#include <string>
 
 struct Triangle{
 
@@ -38,10 +40,13 @@ struct Texture{
     std::vector<unsigned char> image;
     int width, height, channels;
 
-    Texture() 
+    Texture(std::string filePath) 
         :width(0), height(0), channels(0)
     {
-        
+        unsigned char* pic = stbi_load(filePath.data(), &width, &height, &channels, 0);
+        image.resize(width * height * channels);
+        memcpy(image.data(), pic, width * height * channels * sizeof(unsigned char));
+        free(pic);
     }
 };
 

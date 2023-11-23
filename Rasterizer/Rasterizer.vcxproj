@@ -147,6 +147,7 @@
     <ClCompile Include="src\Maths.cpp" />
     <ClCompile Include="src\Rasterizer.cpp" />
     <ClCompile Include="src\CoreTypes.cpp" />
+    <ClCompile Include="src\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\InputManager.h" />
