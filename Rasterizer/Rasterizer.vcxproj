@@ -139,16 +139,20 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)dependencies\glew;$(SolutionDir)dependencies\glm;$(SolutionDir)dependencies\glfw;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glew32s.lib;glfw3.lib;opengl32.lib%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glew32s.lib;glfw3.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\InputManager.cpp" />
+    <ClCompile Include="src\Maths.cpp" />
     <ClCompile Include="src\Rasterizer.cpp" />
+    <ClCompile Include="src\CoreTypes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\InputManager.h" />
+    <ClInclude Include="inc\Maths.h" />
     <ClInclude Include="inc\stb_image.h" />
+    <ClInclude Include="inc\CoreTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
