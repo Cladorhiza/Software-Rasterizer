@@ -7,6 +7,8 @@
 #include "gtx/rotate_vector.hpp"
 
 #include "InputManager.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include <iostream>
 #include <vector>
@@ -19,10 +21,11 @@ static_assert(WIDTH < (2 << 15) - 1);
 static_assert(HEIGHT < (2 << 15) - 1);
 
 constexpr int FRAMEBUFFER_SIZE = WIDTH * HEIGHT;
-constexpr float CLIP_FAR = 500.0f;
+constexpr float CLIP_FAR = 1000.0f;
 constexpr float CLIP_NEAR = 1.0f;
 constexpr float FOV = glm::radians(90.0f);
 
+const glm::vec4 WHITE(1.0f, 1.0f, 1.0f, 1.0f);
 const glm::vec4 BLACK{0.0f, 0.0f, 0.0f, 1.0f};
 const glm::vec4 RED{1.0f, 0.0f, 0.0f, 1.0f};
 const glm::vec4 GREEN{0.0f, 1.0f, 0.0f, 1.0f};
@@ -43,7 +46,7 @@ inline glm::vec3 BWeights(const glm::vec3& v1, const glm::vec3& v2, const glm::v
 
     float det { ((v2.y - v3.y)*(v1.x - v3.x) + (v3.x - v2.x)*(v1.y - v3.y)) };
     //TODO: dunno if any other fix better
-    if (det == 0.0f) det == 0.00000000001f;
+    if (det == 0.0f) det = 0.00000000001f;
 
     float w1 { ((v2.y - v3.y)*(p.x - v3.x) + (v3.x - v2.x)*(p.y - v3.y)) / det };
     float w2 { ((v3.y - v1.y)*(p.x - v3.x) + (v1.x - v3.x)*(p.y - v3.y)) / det };
@@ -54,23 +57,40 @@ inline glm::vec3 BWeights(const glm::vec3& v1, const glm::vec3& v2, const glm::v
     return { w1, w2, w3};
 }
 
+struct Texture{
+    
+    std::vector<unsigned char> image;
+    int width, height, channels;
+};
 
 struct Triangle{
-
+    //verts
     glm::vec3 v1;
     glm::vec3 v2;
     glm::vec3 v3;
+    //colours
     glm::vec4 c1;
     glm::vec4 c2;
     glm::vec4 c3;
+    //texcoords
+    glm::vec2 uv1;
+    glm::vec2 uv2;
+    glm::vec2 uv3;
 
     Triangle()
-        : v1(), v2(), v3(), c1(), c2(), c3()
     {
     }
 
-    Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec4& c1, const glm::vec4& c2, const glm::vec4& c3)
-        : v1(v1), v2(v2), v3(v3), c1(c1), c2(c2), c3(c3)
+    Triangle(const glm::vec3& v1, 
+             const glm::vec3& v2, 
+             const glm::vec3& v3, 
+             const glm::vec4& c1, 
+             const glm::vec4& c2, 
+             const glm::vec4& c3, 
+             const glm::vec2& uv1, 
+             const glm::vec2& uv2, 
+             const glm::vec2& uv3)
+        : v1(v1), v2(v2), v3(v3), c1(c1), c2(c2), c3(c3), uv1(uv1), uv2(uv2), uv3(uv3)
     {
     }
 };
@@ -80,7 +100,7 @@ struct Shader{
     glm::mat4 proj;
     glm::mat4 view;
 
-    Shader(const glm::mat4 proj, const glm::mat4 view)
+    Shader(const glm::mat4& proj, const glm::mat4& view)
         :proj(proj), view(view)
     {
     
@@ -143,29 +163,59 @@ struct FrameBuffer{
         }
     }
 
-    inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex){
-    
+    inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex){
+        
         glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
+        
+        //todo: this is bandaid, pixels should not be being drawn if they are outside the triangle
+        if (weights.x < 0.0f || weights.y < 0.0f || weights.z < 0.0f) return;
+
         float pixelDepth { t.v1.z * weights.x + t.v2.z * weights.y + t.v3.z * weights.z };
 
         //write pixel if depth is lower
         if (Depth[bufferIndex] > pixelDepth) {
                     
             Depth[bufferIndex] = pixelDepth;
-                     
-            //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
-            Colours[bufferIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
-        }
-    
-    
-    }
+            
+            if (tex.image.size() > 0){
 
+                glm::vec2 temp[] {
+                    t.uv1 * weights.x,
+                    t.uv2 * weights.y,
+                    t.uv3 * weights.z
+                };
+
+                glm::vec2 index { temp[0] + temp[1] + temp[2] };
+
+                int indexComponents[] {
+                    (floor(index.x * (tex.width-1)) * tex.channels),
+                    (floor(index.y * (tex.height-1)) * tex.width * tex.channels)
+                };
+
+                int sampleIndex { indexComponents[0] + indexComponents[1] };
+                
+                glm::vec4 texSamples {
+                    static_cast<float>(tex.image[sampleIndex])   / 255.0f,
+                    static_cast<float>(tex.image[sampleIndex+1]) / 255.0f,
+                    static_cast<float>(tex.image[sampleIndex+2]) / 255.0f,
+                    static_cast<float>(tex.image[sampleIndex+3]) / 255.0f,
+                };
+                Colours[bufferIndex] = texSamples;
+            }
+            else {
+                //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
+                Colours[bufferIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
+            }
+            
+        }
+    }
+    
     /// <summary>
     /// Expects a triangle already in screen space. 
     /// Line drawing done with DDA algorithm.
     /// </summary>
     /// <param name="t">The triangle to draw to the buffer</param>
-    void DrawTriangle(const Triangle& t){
+    void DrawTriangle(const Triangle& t, const Texture& tex){
 
         using namespace std;
 
@@ -229,7 +279,7 @@ struct FrameBuffer{
                 xLine.first = min(xIndex, xLine.first);
                 xLine.second = max(xIndex, xLine.second);
 
-                DrawPixel(t, {xIndex, yIndex}, buffIndex);
+                DrawPixel(t, {xIndex, yIndex}, buffIndex, tex);
             }
         }
 
@@ -243,7 +293,7 @@ struct FrameBuffer{
                 
                 int colourIndex { j + ((i + yLower) * WIDTH) };
 
-                DrawPixel(t, { j, i + yLower }, colourIndex);
+                DrawPixel(t, { j, i + yLower }, colourIndex, tex);
             }
         }
     }
@@ -286,126 +336,164 @@ int main(void)
     }
     
     glm::mat4 proj { glm::perspective(FOV, static_cast<float>(WIDTH)/HEIGHT, CLIP_NEAR, CLIP_FAR) };
-    //glm::mat4 proj { glm::ortho(-100.0f, 100.0f, 100.0f, 100.0f)};
     glm::mat4 view { 1.0f };
 
     Shader shader{proj, view};
 
+    
+    Texture wood_front;
+    Texture wood_top;
+    //scoped to destroy unwanted pointer
+    {
+        unsigned char* pic = stbi_load("res/textures/wood_side.png", &wood_front.width, &wood_front.height, &wood_front.channels, 0);
+        wood_front.image.resize(wood_front.width * wood_front.height * wood_front.channels);
+        memcpy(wood_front.image.data(), pic, wood_front.width * wood_front.height * wood_front.channels * sizeof(unsigned char));
+
+        pic = stbi_load("res/textures/wood_top.png", &wood_top.width, &wood_top.height, &wood_top.channels, 0);
+        wood_top.image.resize(wood_top.width * wood_top.height * wood_top.channels);
+        memcpy(wood_top.image.data(), pic, wood_top.width * wood_top.height * wood_top.channels * sizeof(unsigned char));
+    }
 
     Triangle tris[]{
         //front
-{
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-{
-
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
+        {
+            glm::vec3 {-100.0f,-100.0f, 100.0f },
+            glm::vec3 { 100.0f,-100.0f, 100.0f },
+            glm::vec3 { 100.0f, 100.0f, 100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {1.0f, 0.0f},
+            glm::vec2 {1.0f, 1.0f}
+        },
+        {
+            glm::vec3 {-100.0f,-100.0f, 100.0f },
+            glm::vec3 {-100.0f, 100.0f, 100.0f },
+            glm::vec3 { 100.0f, 100.0f, 100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {1.0f, 1.0f}
+        },
         //left
-{
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-     
-{
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f,-100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
+        {
+            glm::vec3 {-100.0f, 100.0f, 100.0f },
+            glm::vec3 {-100.0f,-100.0f, 100.0f },
+            glm::vec3 {-100.0f,-100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {1.0f, 1.0f},
+            glm::vec2 {1.0f, 0.0f},
+            glm::vec2 {0.0f, 0.0f}
+        },
+        {
+            glm::vec3 {-100.0f, 100.0f, 100.0f },
+            glm::vec3 {-100.0f, 100.0f,-100.0f },
+            glm::vec3 {-100.0f,-100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {1.0f, 1.0f},
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {0.0f, 0.0f}
+        },
         //right
-{
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f,-100.0f },
-        glm::vec3 { 100.0f,-100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-     
-{
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-        //top
-{
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-     
-{
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f,-100.0f },
-        glm::vec3 {-100.0f, 100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-        //bottom
-{
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f,-100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-     
-{
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
+        {
+            glm::vec3 { 100.0f, 100.0f, 100.0f },
+            glm::vec3 { 100.0f, 100.0f,-100.0f },
+            glm::vec3 { 100.0f,-100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {1.0f, 1.0f},
+            glm::vec2 {1.0f, 0.0f}
+        },
+        {
+            glm::vec3 { 100.0f, 100.0f, 100.0f },
+            glm::vec3 { 100.0f,-100.0f, 100.0f },
+            glm::vec3 { 100.0f,-100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {1.0f, 0.0f}
+        },
         //back
-{
-        glm::vec3 { 100.0f, 100.0f, -100.0f },
-        glm::vec3 { 100.0f,-100.0f, -100.0f },
-        glm::vec3 {-100.0f,-100.0f, -100.0f },
-        GREEN,
-        BLUE,
-        RED,
-},
-     
-{
-        glm::vec3 { 100.0f, 100.0f, -100.0f },
-        glm::vec3 {-100.0f, 100.0f, -100.0f },
-        glm::vec3 {-100.0f,-100.0f, -100.0f },
-        GREEN,
-        BLUE,
-        RED
-}
+        {
+            glm::vec3 { 100.0f, 100.0f, -100.0f },
+            glm::vec3 { 100.0f,-100.0f, -100.0f },
+            glm::vec3 {-100.0f,-100.0f, -100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {1.0f, 0.0f}
+        },
+        {
+            glm::vec3 { 100.0f, 100.0f, -100.0f },
+            glm::vec3 {-100.0f, 100.0f, -100.0f },
+            glm::vec3 {-100.0f,-100.0f, -100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {1.0f, 1.0f},
+            glm::vec2 {1.0f, 0.0f}
+        },
+        //top
+        {
+            glm::vec3 { 100.0f, 100.0f, 100.0f },
+            glm::vec3 {-100.0f, 100.0f, 100.0f },
+            glm::vec3 {-100.0f, 100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {1.0f, 0.0f},
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {0.0f, 1.0f}
+        },
+        {
+            glm::vec3 { 100.0f, 100.0f, 100.0f },
+            glm::vec3 { 100.0f, 100.0f,-100.0f },
+            glm::vec3 {-100.0f, 100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {1.0f, 0.0f},
+            glm::vec2 {1.0f, 1.0f},
+            glm::vec2 {0.0f, 1.0f}
+        },
+        //bottom
+        {
+            glm::vec3 { 100.0f,-100.0f, 100.0f },
+            glm::vec3 { 100.0f,-100.0f,-100.0f },
+            glm::vec3 {-100.0f,-100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {0.0f, 1.0f},
+            glm::vec2 {1.0f, 1.0f}
+        },
+        {
+            glm::vec3 { 100.0f,-100.0f, 100.0f },
+            glm::vec3 {-100.0f,-100.0f, 100.0f },
+            glm::vec3 {-100.0f,-100.0f,-100.0f },
+            WHITE,
+            WHITE,
+            WHITE,
+            glm::vec2 {0.0f, 0.0f},
+            glm::vec2 {1.0f, 0.0f},
+            glm::vec2 {1.0f, 1.0f}
+        }
     };
-
-
-
-    float perspective = FOV;
 
     glm::mat4 model { 1.0f };
 
@@ -427,7 +515,8 @@ int main(void)
             break;
         }
 
-        rotation += 0.05f;
+        rotation += 0.075f;
+        if (rotation > 360.0f) rotation -= 360.0f;
         model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 100.f*sin(rotation), 0.0f});
         model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
         
@@ -463,7 +552,8 @@ int main(void)
 
         //render
         for (int i { 0 }; i < 12; i++){
-            frameBuff.DrawTriangle(shader.ToScreenSpace(tris[i], model));
+            if (i < 8) frameBuff.DrawTriangle(shader.ToScreenSpace(tris[i], model), wood_front); // draw log sides
+            else frameBuff.DrawTriangle(shader.ToScreenSpace(tris[i], model), wood_top); // draw log top/bottom
         }
 
         //glDrawPixels(WIDTH, HEIGHT, GL_RED, GL_FLOAT, frameBuff.Depth.data());
