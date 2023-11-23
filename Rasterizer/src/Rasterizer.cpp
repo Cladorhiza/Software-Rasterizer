@@ -61,23 +61,24 @@ struct Texture{
     
     std::vector<unsigned char> image;
     int width, height, channels;
+
+    Texture() 
+        :width(0), height(0), channels(0)
+    {
+        
+    }
 };
 
 struct Triangle{
     //verts
-    glm::vec3 v1;
-    glm::vec3 v2;
-    glm::vec3 v3;
+    glm::vec3 v1, v2, v3;
     //colours
-    glm::vec4 c1;
-    glm::vec4 c2;
-    glm::vec4 c3;
+    glm::vec4 c1, c2, c3;
     //texcoords
-    glm::vec2 uv1;
-    glm::vec2 uv2;
-    glm::vec2 uv3;
+    glm::vec2 uv1, uv2, uv3;
 
     Triangle()
+        :v1(0.0f), v2(0.0f), v3(0.0f), c1(0.0f), c2(0.0f), c3(0.0f), uv1(0.0f), uv2(0.0f), uv3(0.0f) 
     {
     }
 
@@ -163,7 +164,7 @@ struct FrameBuffer{
         }
     }
 
-    inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex){
+    inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex) {
         
         glm::vec3 weights { BWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
         
@@ -177,7 +178,7 @@ struct FrameBuffer{
                     
             Depth[bufferIndex] = pixelDepth;
             
-            if (tex.image.size() > 0){
+            if (tex.image.size() > 0) {
 
                 glm::vec2 temp[] {
                     t.uv1 * weights.x,
@@ -188,8 +189,8 @@ struct FrameBuffer{
                 glm::vec2 index { temp[0] + temp[1] + temp[2] };
 
                 int indexComponents[] {
-                    (floor(index.x * (tex.width-1)) * tex.channels),
-                    (floor(index.y * (tex.height-1)) * tex.width * tex.channels)
+                    (static_cast<int>(floor(index.x * (tex.width-1))) * tex.channels),
+                    (static_cast<int>(floor(index.y * (tex.height-1))) * tex.width * tex.channels)
                 };
 
                 int sampleIndex { indexComponents[0] + indexComponents[1] };
@@ -348,10 +349,12 @@ int main(void)
         unsigned char* pic = stbi_load("res/textures/wood_side.png", &wood_front.width, &wood_front.height, &wood_front.channels, 0);
         wood_front.image.resize(wood_front.width * wood_front.height * wood_front.channels);
         memcpy(wood_front.image.data(), pic, wood_front.width * wood_front.height * wood_front.channels * sizeof(unsigned char));
+        free(pic);
 
         pic = stbi_load("res/textures/wood_top.png", &wood_top.width, &wood_top.height, &wood_top.channels, 0);
         wood_top.image.resize(wood_top.width * wood_top.height * wood_top.channels);
         memcpy(wood_top.image.data(), pic, wood_top.width * wood_top.height * wood_top.channels * sizeof(unsigned char));
+        free(pic);
     }
 
     Triangle tris[]{
