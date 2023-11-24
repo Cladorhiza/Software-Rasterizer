@@ -50,6 +50,7 @@ struct Texture{
     }
 };
 
+//Shaders store state that is required to transform a triangle from object space to clip space
 struct Shader{
     
     glm::mat4 proj;
@@ -114,7 +115,7 @@ struct FrameBuffer{
         }
     }
 
-    inline void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex) {
+    void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex) {
         
         glm::vec3 weights { Maths::BarycentricWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
         
@@ -166,6 +167,7 @@ struct FrameBuffer{
     /// Line drawing done with DDA algorithm.
     /// </summary>
     /// <param name="t">The triangle to draw to the buffer</param>
+    /// <param name="tex">The texture to sample from when drawing pixels for the triangle</param>
     void DrawTriangle(Triangle t, const Texture& tex){
 
         using namespace std;

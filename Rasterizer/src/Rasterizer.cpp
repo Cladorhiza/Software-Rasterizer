@@ -13,13 +13,12 @@
 #include <vector>
 #include <algorithm>
 
-constexpr int WIDTH = 960;
-constexpr int HEIGHT = 540;
+constexpr int WIDTH = 1920;
+constexpr int HEIGHT = 1080;
 //triangle drawing cannot draw larger than 2^16-1
 static_assert(WIDTH < (2 << 15) - 1);
 static_assert(HEIGHT < (2 << 15) - 1);
 
-constexpr int FRAMEBUFFER_SIZE = WIDTH * HEIGHT;
 constexpr float CLIP_FAR = 1000.0f;
 constexpr float CLIP_NEAR = 1.0f;
 constexpr float FOV = glm::radians(90.0f);
@@ -209,19 +208,13 @@ int main(void)
     //Application
 
     FrameBuffer frameBuff { WIDTH, HEIGHT };
-
-	memset(frameBuff.Colours.data(), 0, FRAMEBUFFER_SIZE * sizeof(glm::vec4));
-
-    for (int i{0}; i < (FRAMEBUFFER_SIZE); i++){
-        frameBuff.Depth[i] = CLIP_FAR;
-    }
+    frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);
     
     glm::mat4 proj { glm::perspective(FOV, static_cast<float>(WIDTH)/HEIGHT, CLIP_NEAR, CLIP_FAR) };
     glm::mat4 view { 1.0f };
 
     Shader shader{proj, view};
 
-    
     Texture wood_front{ "res/textures/wood_side.png" };
     Texture wood_top{ "res/textures/wood_top.png" };
 
