@@ -10,6 +10,12 @@ namespace Maths {
         return x1 + (range * ratio);
     }
 
+    //Fractional Part
+    float Fractional(float x){
+        x = abs(x);
+        return x - static_cast<int>(x);
+    }
+
     //barycentric weights TODO: vec2 overload, also why tf does marking this inline give me linker errors
     glm::vec3 BarycentricWeights(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& p){
 

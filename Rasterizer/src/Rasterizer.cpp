@@ -13,8 +13,8 @@
 #include <vector>
 #include <algorithm>
 
-constexpr int WIDTH = 1920;
-constexpr int HEIGHT = 1080;
+constexpr int WIDTH = 1280;
+constexpr int HEIGHT = 720;
 //triangle drawing cannot draw larger than 2^16-1
 static_assert(WIDTH < (2 << 15) - 1);
 static_assert(HEIGHT < (2 << 15) - 1);
