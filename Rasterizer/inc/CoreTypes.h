@@ -68,3 +68,22 @@ struct FrameBuffer{
     /// <param name="tex">The texture to sample from when drawing pixels for the triangle</param>
     void DrawTriangle(Triangle t, const Texture& tex);
 };
+
+struct Model{
+
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texCoords;
+    std::vector<glm::vec3> triIndexes;
+
+    Model();
+
+    Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes);
+
+
+
+
+
+
+
+};

@@ -218,3 +218,17 @@ void FrameBuffer::DrawTriangle(Triangle t, const Texture& tex){
         }
     }
 }
+
+Model::Model()
+{
+
+
+}
+
+Model::Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes)
+    :vertices(vertices), normals(normals), texCoords(texCoords), triIndexes(triIndexes)
+{
+
+
+
+}
