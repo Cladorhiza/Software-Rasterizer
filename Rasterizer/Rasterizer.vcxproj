@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="src\FileParsing.cpp" />
     <ClCompile Include="src\InputManager.cpp" />
+    <ClCompile Include="src\Lighting.cpp" />
     <ClCompile Include="src\Maths.cpp" />
     <ClCompile Include="src\Rasterizer.cpp" />
     <ClCompile Include="src\CoreTypes.cpp" />
@@ -153,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="inc\FileParsing.h" />
     <ClInclude Include="inc\InputManager.h" />
+    <ClInclude Include="inc\Lighting.h" />
     <ClInclude Include="inc\Maths.h" />
     <ClInclude Include="inc\stb_image.h" />
     <ClInclude Include="inc\CoreTypes.h" />

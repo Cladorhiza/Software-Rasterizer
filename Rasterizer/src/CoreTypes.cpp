@@ -1,7 +1,9 @@
 #include "CoreTypes.h"
 
+#include "Lighting.h"
+
 Triangle::Triangle()
-    :v1(0.0f), v2(0.0f), v3(0.0f), c1(0.0f), c2(0.0f), c3(0.0f), uv1(0.0f), uv2(0.0f), uv3(0.0f) 
+    :v1(0.0f), v2(0.0f), v3(0.0f), c1(0.0f), c2(0.0f), c3(0.0f), uv1(0.0f), uv2(0.0f), uv3(0.0f), n1(0.0f), n2(0.0f), n3(0.0f)
 {
 
 }
@@ -14,8 +16,11 @@ Triangle::Triangle(const glm::vec3& v1,
                    const glm::vec4& c3, 
                    const glm::vec2& uv1, 
                    const glm::vec2& uv2, 
-                   const glm::vec2& uv3)
-    : v1(v1), v2(v2), v3(v3), c1(c1), c2(c2), c3(c3), uv1(uv1), uv2(uv2), uv3(uv3)
+                   const glm::vec2& uv3,
+                   const glm::vec3& n1,
+                   const glm::vec3& n2,
+                   const glm::vec3& n3)
+    : v1(v1), v2(v2), v3(v3), c1(c1), c2(c2), c3(c3), uv1(uv1), uv2(uv2), uv3(uv3), n1(n1), n2(n2), n3(n3)
 {
 
 }
@@ -96,7 +101,10 @@ std::vector<Triangle> Shader::ToClipSpace(const Model& m, const glm::mat4& model
             glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
             m.texCoords[static_cast<size_t>(m.triIndexes[i].y) - 1],
             m.texCoords[static_cast<size_t>(m.triIndexes[i + 1].y) - 1],
-            m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1]
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 1].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 2].z) - 1]
             }
             ,
             {
@@ -108,7 +116,10 @@ std::vector<Triangle> Shader::ToClipSpace(const Model& m, const glm::mat4& model
             glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
             m.texCoords[static_cast<size_t>(m.triIndexes[i].y) - 1],
             m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1],
-            m.texCoords[static_cast<size_t>(m.triIndexes[i + 3].y) - 1]
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 3].y) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 2].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 3].z) - 1]
             }
         };
 
@@ -142,7 +153,7 @@ void FrameBuffer::Clear(const glm::vec4& clearColour, float clearDepth){
 void FrameBuffer::DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex) {
         
     glm::vec3 weights { Maths::BarycentricWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
-        
+
     //todo: this is bandaid, pixels should not be being drawn if they are outside the triangle
     if (weights.x < 0.0f || weights.y < 0.0f || weights.z < 0.0f) return;
 
@@ -176,6 +187,7 @@ void FrameBuffer::DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int buff
                 static_cast<float>(tex.image[sampleIndex+2]) / 255.0f,
                 static_cast<float>(tex.image[sampleIndex+3]) / 255.0f,
             };
+
             Colours[bufferIndex] = texSamples;
         }
         else {

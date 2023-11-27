@@ -15,6 +15,8 @@ struct Triangle{
     glm::vec4 c1, c2, c3;
     //texcoords
     glm::vec2 uv1, uv2, uv3;
+    //normals
+    glm::vec3 n1, n2, n3;
 
     Triangle();
 
@@ -26,7 +28,10 @@ struct Triangle{
              const glm::vec4& c3, 
              const glm::vec2& uv1, 
              const glm::vec2& uv2, 
-             const glm::vec2& uv3);
+             const glm::vec2& uv3,
+             const glm::vec3& n1,
+             const glm::vec3& n2, 
+             const glm::vec3& n3);
 };
 
 struct Model{
