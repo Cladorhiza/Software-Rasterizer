@@ -34,147 +34,6 @@ constexpr glm::vec4 BURGUNDY{0.5f, 0.0f, 0.125f, 1.0f};
 
 const glm::vec4 CLEAR_COLOUR{BLACK};
 
-Triangle tris[]{
-    //front
-    {
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {1.0f, 0.0f},
-        glm::vec2 {1.0f, 1.0f}
-    },
-    {
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {1.0f, 1.0f}
-    },
-    //left
-    {
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {1.0f, 1.0f},
-        glm::vec2 {1.0f, 0.0f},
-        glm::vec2 {0.0f, 0.0f}
-    },
-    {
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f,-100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {1.0f, 1.0f},
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {0.0f, 0.0f}
-    },
-    //right
-    {
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f,-100.0f },
-        glm::vec3 { 100.0f,-100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {1.0f, 1.0f},
-        glm::vec2 {1.0f, 0.0f}
-    },
-    {
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {1.0f, 0.0f}
-    },
-    //back
-    {
-        glm::vec3 { 100.0f, 100.0f, -100.0f },
-        glm::vec3 { 100.0f,-100.0f, -100.0f },
-        glm::vec3 {-100.0f,-100.0f, -100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {1.0f, 0.0f}
-    },
-    {
-        glm::vec3 { 100.0f, 100.0f, -100.0f },
-        glm::vec3 {-100.0f, 100.0f, -100.0f },
-        glm::vec3 {-100.0f,-100.0f, -100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {1.0f, 1.0f},
-        glm::vec2 {1.0f, 0.0f}
-    },
-    //top
-    {
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f, 100.0f },
-        glm::vec3 {-100.0f, 100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {1.0f, 0.0f},
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {0.0f, 1.0f}
-    },
-    {
-        glm::vec3 { 100.0f, 100.0f, 100.0f },
-        glm::vec3 { 100.0f, 100.0f,-100.0f },
-        glm::vec3 {-100.0f, 100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {1.0f, 0.0f},
-        glm::vec2 {1.0f, 1.0f},
-        glm::vec2 {0.0f, 1.0f}
-    },
-    //bottom
-    {
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 { 100.0f,-100.0f,-100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {0.0f, 1.0f},
-        glm::vec2 {1.0f, 1.0f}
-    },
-    {
-        glm::vec3 { 100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f, 100.0f },
-        glm::vec3 {-100.0f,-100.0f,-100.0f },
-        WHITE,
-        WHITE,
-        WHITE,
-        glm::vec2 {0.0f, 0.0f},
-        glm::vec2 {1.0f, 0.0f},
-        glm::vec2 {1.0f, 1.0f}
-    }
-};
-
 int main(void)
 {
     //Init
@@ -204,8 +63,6 @@ int main(void)
     fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 
     //~Init
-
-
     //Application
 
     Model benchModel;
@@ -296,12 +153,6 @@ int main(void)
         }
         
         shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
-
-        //render
-        //for (int i { 0 }; i < 12; i++){
-        //    if (i < 8) frameBuff.DrawTriangle(shader.ToClipSpace(tris[i], model), wood_front); // draw log sides
-        //    else frameBuff.DrawTriangle(shader.ToClipSpace(tris[i], model), wood_top); // draw log top/bottom
-        //}
 
         std::vector<Triangle> clipSpaceModel { shader.ToClipSpace(benchModel, model) };
         
