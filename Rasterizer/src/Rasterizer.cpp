@@ -230,7 +230,6 @@ int main(void)
         benchModel.triIndexes.emplace_back(benchData.indexes[i], benchData.indexes[i + 1], benchData.indexes[i + 2]);
     }
 
-
     FrameBuffer frameBuff { WIDTH, HEIGHT };
     frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);
     
@@ -241,6 +240,7 @@ int main(void)
 
     Texture wood_front{ "res/textures/wood_side.png" };
     Texture wood_top{ "res/textures/wood_top.png" };
+    Texture benchColour{ "res/models/bench/Bench_M1014_BaseColor.png" };
 
     glm::mat4 model { 1.0f };
 
@@ -262,10 +262,10 @@ int main(void)
             break;
         }
 
-        rotation += 0.075f;
-        if (rotation > 360.0f) rotation -= 360.0f;
-        model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 100.f*sin(rotation), 0.0f});
-        model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
+        //rotation += 0.075f;
+        //if (rotation > 360.0f) rotation -= 360.0f;
+        //model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 100.f*sin(rotation), 0.0f});
+        //model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
         
         //camera
         if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
@@ -298,10 +298,19 @@ int main(void)
         shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
 
         //render
-        for (int i { 0 }; i < 12; i++){
-            if (i < 8) frameBuff.DrawTriangle(shader.ToClipSpace(tris[i], model), wood_front); // draw log sides
-            else frameBuff.DrawTriangle(shader.ToClipSpace(tris[i], model), wood_top); // draw log top/bottom
+        //for (int i { 0 }; i < 12; i++){
+        //    if (i < 8) frameBuff.DrawTriangle(shader.ToClipSpace(tris[i], model), wood_front); // draw log sides
+        //    else frameBuff.DrawTriangle(shader.ToClipSpace(tris[i], model), wood_top); // draw log top/bottom
+        //}
+
+        std::vector<Triangle> clipSpaceModel { shader.ToClipSpace(benchModel, model) };
+        
+        for (int i { 0 }; i < clipSpaceModel.size(); i++){
+            
+            frameBuff.DrawTriangle(clipSpaceModel[i], benchColour);
+            
         }
+
 
         //glDrawPixels(WIDTH, HEIGHT, GL_RED, GL_FLOAT, frameBuff.Depth.data());
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());

@@ -29,6 +29,25 @@ struct Triangle{
              const glm::vec2& uv3);
 };
 
+struct Model{
+
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texCoords;
+    std::vector<glm::vec3> triIndexes;
+
+    Model();
+
+    Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes);
+
+
+
+
+
+
+
+};
+
 struct Texture{
     
     std::vector<unsigned char> image;
@@ -46,6 +65,7 @@ struct Shader{
     Shader(const glm::mat4& proj, const glm::mat4& view);
 
     Triangle ToClipSpace(Triangle t, const glm::mat4& model);
+    std::vector<Triangle> ToClipSpace(const Model& m, const glm::mat4& model);
 };
 
 struct FrameBuffer{
@@ -69,21 +89,3 @@ struct FrameBuffer{
     void DrawTriangle(Triangle t, const Texture& tex);
 };
 
-struct Model{
-
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec3> normals;
-    std::vector<glm::vec2> texCoords;
-    std::vector<glm::vec3> triIndexes;
-
-    Model();
-
-    Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes);
-
-
-
-
-
-
-
-};

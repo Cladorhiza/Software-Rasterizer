@@ -20,6 +20,20 @@ Triangle::Triangle(const glm::vec3& v1,
 
 }
 
+Model::Model()
+{
+
+
+}
+
+Model::Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes)
+    :vertices(vertices), normals(normals), texCoords(texCoords), triIndexes(triIndexes)
+{
+
+
+
+}
+
 Texture::Texture(std::string filePath) 
     :width(0), height(0), channels(0)
 {
@@ -61,6 +75,50 @@ Triangle Shader::ToClipSpace(Triangle t, const glm::mat4& model){
     t.v3.z = v3.z;
 
     return t;
+}
+
+//TODO: less OOP solution, a general function for just the geometry perhaps? without explicit model struct type
+std::vector<Triangle> Shader::ToClipSpace(const Model& m, const glm::mat4& model){
+
+    std::vector<Triangle> result;
+    result.reserve( m.triIndexes.size()/2 );
+    //2 tris per quad
+    for (int i { 0 }; i+3 < m.triIndexes.size(); i+=4){
+        
+        //create 2 tris
+        Triangle t[] {
+            {
+            m.vertices[static_cast<size_t>(m.triIndexes[i].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 1].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 2].x) - 1],
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            m.texCoords[static_cast<size_t>(m.triIndexes[i].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 1].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1]
+            }
+            ,
+            {
+            m.vertices[static_cast<size_t>(m.triIndexes[i].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 2].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 3].x) - 1],
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            m.texCoords[static_cast<size_t>(m.triIndexes[i].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 3].y) - 1]
+            }
+        };
+
+        //transform to clip space
+        //add to result vector
+        result.emplace_back(ToClipSpace(t[0], model));
+        result.emplace_back(ToClipSpace(t[1], model));
+
+    }
+    return result;
 }
 
 FrameBuffer::FrameBuffer(int width, int height)
@@ -217,18 +275,4 @@ void FrameBuffer::DrawTriangle(Triangle t, const Texture& tex){
             DrawPixel(t, { j, i + yLower }, colourIndex, tex);
         }
     }
-}
-
-Model::Model()
-{
-
-
-}
-
-Model::Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes)
-    :vertices(vertices), normals(normals), texCoords(texCoords), triIndexes(triIndexes)
-{
-
-
-
 }
