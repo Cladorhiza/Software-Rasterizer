@@ -8,6 +8,7 @@
 //proj
 #include "InputManager.h"
 #include "CoreTypes.h"
+#include "FileParsing.h"
 //stl
 #include <iostream>
 #include <vector>
@@ -23,13 +24,13 @@ constexpr float CLIP_FAR = 1000.0f;
 constexpr float CLIP_NEAR = 1.0f;
 constexpr float FOV = glm::radians(90.0f);
 
-const glm::vec4 WHITE(1.0f, 1.0f, 1.0f, 1.0f);
-const glm::vec4 BLACK{0.0f, 0.0f, 0.0f, 1.0f};
-const glm::vec4 RED{1.0f, 0.0f, 0.0f, 1.0f};
-const glm::vec4 GREEN{0.0f, 1.0f, 0.0f, 1.0f};
-const glm::vec4 BLUE{0.0f, 0.0f, 1.0f, 1.0f};
-const glm::vec4 YELLOW{1.0f, 1.0f, 0.0f, 1.0f};
-const glm::vec4 BURGUNDY{0.5f, 0.0f, 0.125f, 1.0f};
+constexpr glm::vec4 WHITE(1.0f, 1.0f, 1.0f, 1.0f);
+constexpr glm::vec4 BLACK{0.0f, 0.0f, 0.0f, 1.0f};
+constexpr glm::vec4 RED{1.0f, 0.0f, 0.0f, 1.0f};
+constexpr glm::vec4 GREEN{0.0f, 1.0f, 0.0f, 1.0f};
+constexpr glm::vec4 BLUE{0.0f, 0.0f, 1.0f, 1.0f};
+constexpr glm::vec4 YELLOW{1.0f, 1.0f, 0.0f, 1.0f};
+constexpr glm::vec4 BURGUNDY{0.5f, 0.0f, 0.125f, 1.0f};
 
 const glm::vec4 CLEAR_COLOUR{BLACK};
 
@@ -206,6 +207,8 @@ int main(void)
 
 
     //Application
+
+    FileParsing::OBJFileParseResult benchData { FileParsing::ParseObjToData(FileParsing::LoadFile("res/models/bench/Bench.obj")) };
 
     FrameBuffer frameBuff { WIDTH, HEIGHT };
     frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);
