@@ -1,43 +1,70 @@
 #include "Shader.h"
 
+#include "Lighting.h"
+
 Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
     :proj(proj), view(view)
 {
     
 }
 
-Triangle Shader::ToClipSpace(Triangle t, const glm::mat4& model){
+Shader::ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
+    
+    ClipSpaceInfo result;
+    result.t = t;
+
+    glm::mat4 vp { view * model };
         
-    glm::mat4 mvp { proj * view * model };
+    //transform to view space for lighting info
+    result.v1view = vp * glm::vec4{t.v1, 1.0f};
+    result.v2view = vp * glm::vec4{t.v2, 1.0f};
+    result.v3view = vp * glm::vec4{t.v3, 1.0f};
+
+    //get view space normals, TODO: this doesn't work for non linear scaling, it will mess up the normals. look at learnopenGL basic lighting for info
+    glm::mat3 normalTransform { vp };
+
+    result.n1view = normalTransform * t.n1;
+    result.n2view = normalTransform * t.n2;
+    result.n3view = normalTransform * t.n3;
+
+    result.r1view = glm::normalize(glm::reflect(result.v1view - lightInfo.worldPosition, result.n1view));
+    result.r2view = glm::normalize(glm::reflect(result.v2view - lightInfo.worldPosition, result.n2view));
+    result.r3view = glm::normalize(glm::reflect(result.v3view - lightInfo.worldPosition, result.n3view));
         
     //get in clip space
     glm::vec4 v1, v2, v3;
 
-    v1 = mvp * glm::vec4{t.v1, 1.0f};
-    v2 = mvp * glm::vec4{t.v2, 1.0f};
-    v3 = mvp * glm::vec4{t.v3, 1.0f};
-        
+    v1 = proj * glm::vec4{result.v1view, 1.0f};
+    v2 = proj * glm::vec4{result.v2view, 1.0f};
+    v3 = proj * glm::vec4{result.v3view, 1.0f};
+
+    glm::mat3 mvpNorms {glm::mat3{proj} * normalTransform};
+
+    result.t.n1 = mvpNorms * t.n1;
+    result.t.n2 = mvpNorms * t.n2;
+    result.t.n3 = mvpNorms * t.n3;
+
     //if depth from origin in clip space is 0, I'm setting it to -1 to make sure they don't render
     if (v1.w == 0) v1.w = -1;
     if (v2.w == 0) v2.w = -1;
     if (v3.w == 0) v3.w = -1;
 
-    t.v1 = v1 / v1.w;
-    t.v2 = v2 / v2.w;
-    t.v3 = v3 / v3.w;
+    result.t.v1 = v1 / v1.w;
+    result.t.v2 = v2 / v2.w;
+    result.t.v3 = v3 / v3.w;
 
     //keep z ordering info from clip space
-    t.v1.z = v1.z;
-    t.v2.z = v2.z;
-    t.v3.z = v3.z;
+    result.t.v1.z = v1.z;
+    result.t.v2.z = v2.z;
+    result.t.v3.z = v3.z;
 
-    return t;
+    return result;
 }
 
 //TODO: less OOP solution, a general function for just the geometry perhaps? without explicit model struct type
-std::vector<Triangle> Shader::ToClipSpace(const Model& m, const glm::mat4& model){
+std::vector<Shader::ClipSpaceInfo> Shader::ToClipSpace(const Model& m, const glm::mat4& model){
 
-    std::vector<Triangle> result;
+    std::vector<ClipSpaceInfo> result;
     result.reserve( m.triIndexes.size()/2 );
     //2 tris per quad
     for (int i { 0 }; i+3 < m.triIndexes.size(); i+=4){
@@ -77,34 +104,40 @@ std::vector<Triangle> Shader::ToClipSpace(const Model& m, const glm::mat4& model
 
         //transform to clip space
         //add to result vector
-        result.emplace_back(ToClipSpace(t[0], model));
-        result.emplace_back(ToClipSpace(t[1], model));
+        ClipSpaceInfo csi1 { ToClipSpace(t[0], model) };
+        ClipSpaceInfo csi2 { ToClipSpace(t[1], model) };
+        //TODO: currently this only takes into account 1 normal to dot for backface culling, so it won't work for 3 verts with different normals (idk when that would be...) (maybe this is good)
+        //Also this assumes that the quad always has the same normals for both triangles which... feels correct? Idk still a novice so might be wrong
+        //if (glm::dot(csi1.t.n1, glm::vec3{0.0f, 0.0f, 1.0f} - glm::vec3{(csi1.t.v1 + csi1.t.v2 + csi1.t.v3) / 3.0f}) < 0) {
+            result.push_back(csi1);
+            result.push_back(csi2);
+        //}
 
     }
     return result;
 }
 
-void Shader::DrawTriangle(Triangle t, const Texture& tex, FrameBuffer& fb){
+void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, FrameBuffer& fb){
 
     using namespace std;
 
     //get in screen space
-    t.v1.x = (t.v1.x + 1) * (fb.width / 2);
-    t.v1.y = (t.v1.y + 1) * (fb.height / 2);
-    t.v2.x = (t.v2.x + 1) * (fb.width / 2);
-    t.v2.y = (t.v2.y + 1) * (fb.height / 2);
-    t.v3.x = (t.v3.x + 1) * (fb.width / 2);
-    t.v3.y = (t.v3.y + 1) * (fb.height / 2);
+    clipInfo.t.v1.x = (clipInfo.t.v1.x + 1) * (fb.width / 2);
+    clipInfo.t.v1.y = (clipInfo.t.v1.y + 1) * (fb.height / 2);
+    clipInfo.t.v2.x = (clipInfo.t.v2.x + 1) * (fb.width / 2);
+    clipInfo.t.v2.y = (clipInfo.t.v2.y + 1) * (fb.height / 2);
+    clipInfo.t.v3.x = (clipInfo.t.v3.x + 1) * (fb.width / 2);
+    clipInfo.t.v3.y = (clipInfo.t.v3.y + 1) * (fb.height / 2);
 
-    glm::vec3 verts[]{t.v1, t.v2, t.v2, t.v3, t.v3, t.v1};
+    glm::vec3 verts[]{clipInfo.t.v1, clipInfo.t.v2, clipInfo.t.v2, clipInfo.t.v3, clipInfo.t.v3, clipInfo.t.v1};
 
     //storage for pixels drawn in specific format
     vector<pair<uint16_t,uint16_t>> xLineIndexes;
     //information regarding bounds of the triangle, want the bounding box to also be bounded by the window dimensions as there's no reason to store x or y values outside of the screen
-    int xUpper { min(static_cast<int>(max({floor(t.v1.x), floor(t.v2.x), floor(t.v3.x)})), fb.width - 1) };
-    int yUpper { min(static_cast<int>(max({floor(t.v1.y), floor(t.v2.y), floor(t.v3.y)})), fb.height - 1)};
-    int xLower { max(static_cast<int>(min({floor(t.v1.x), floor(t.v2.x), floor(t.v3.x)})), 0) };
-    int yLower { max(static_cast<int>(min({floor(t.v1.y), floor(t.v2.y), floor(t.v3.y)})), 0) };
+    int xUpper { min(static_cast<int>(max({floor(clipInfo.t.v1.x), floor(clipInfo.t.v2.x), floor(clipInfo.t.v3.x)})), fb.width - 1) };
+    int yUpper { min(static_cast<int>(max({floor(clipInfo.t.v1.y), floor(clipInfo.t.v2.y), floor(clipInfo.t.v3.y)})), fb.height - 1)};
+    int xLower { max(static_cast<int>(min({floor(clipInfo.t.v1.x), floor(clipInfo.t.v2.x), floor(clipInfo.t.v3.x)})), 0) };
+    int yLower { max(static_cast<int>(min({floor(clipInfo.t.v1.y), floor(clipInfo.t.v2.y), floor(clipInfo.t.v3.y)})), 0) };
     //each vector represents the triangles x points on the lines of the triangle
     xLineIndexes.resize(abs(yUpper - yLower) + 1);
     //ensure that any x value present will be less than the initial minimum x
@@ -156,7 +189,7 @@ void Shader::DrawTriangle(Triangle t, const Texture& tex, FrameBuffer& fb){
             xLine.first = min(xIndex, xLine.first);
             xLine.second = max(xIndex, xLine.second);
 
-            DrawPixel(t, {xIndex, yIndex}, buffIndex, tex, fb);
+            DrawPixel(clipInfo, {xIndex, yIndex}, buffIndex, tex, fb);
         }
     }
 
@@ -170,19 +203,19 @@ void Shader::DrawTriangle(Triangle t, const Texture& tex, FrameBuffer& fb){
                 
             int colourIndex { j + ((i + yLower) * fb.width) };
 
-            DrawPixel(t, { j, i + yLower }, colourIndex, tex, fb);
+            DrawPixel(clipInfo, { j, i + yLower }, colourIndex, tex, fb);
         }
     }
 }
 
-void Shader::DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex, FrameBuffer& fb) {
+void Shader::DrawPixel(const ClipSpaceInfo& clipInfo, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex, FrameBuffer& fb) {
         
-    glm::vec3 weights { Maths::BarycentricWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
+    glm::vec3 weights { Maths::BarycentricWeights(clipInfo.t.v1, clipInfo.t.v2, clipInfo.t.v3, {pixelPosition, 0.0f}) };
 
     //todo: this is bandaid, pixels should not be being drawn if they are outside the triangle
     if (weights.x < 0.0f || weights.y < 0.0f || weights.z < 0.0f) return;
 
-    float pixelDepth { t.v1.z * weights.x + t.v2.z * weights.y + t.v3.z * weights.z };
+    float pixelDepth { clipInfo.t.v1.z * weights.x + clipInfo.t.v2.z * weights.y + clipInfo.t.v3.z * weights.z };
 
     //write pixel if depth is lower
     if (fb.Depth[bufferIndex] > pixelDepth) {
@@ -192,9 +225,9 @@ void Shader::DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferInd
         if (tex.image.size() > 0) {
 
             glm::vec2 temp[] {
-                t.uv1 * weights.x,
-                t.uv2 * weights.y,
-                t.uv3 * weights.z
+                clipInfo.t.uv1 * weights.x,
+                clipInfo.t.uv2 * weights.y,
+                clipInfo.t.uv3 * weights.z
             };
 
             glm::vec2 index { temp[0] + temp[1] + temp[2] };
@@ -213,13 +246,31 @@ void Shader::DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferInd
                 static_cast<float>(tex.image[sampleIndex+3]) / 255.0f,
             };
 
-            fb.Colours[bufferIndex] = texSamples;
+            glm::vec3 l { glm::vec3{ view * glm::vec4{lightInfo.worldPosition, 1.0f} } - (clipInfo.v1view * weights.x) + (clipInfo.v2view * weights.y) + (clipInfo.v3view * weights.z) };
+            glm::vec3 n { (clipInfo.n1view * weights.x) + (clipInfo.n2view * weights.y) + (clipInfo.n3view * weights.z) }; 
+            glm::vec3 r { (clipInfo.r1view * weights.x) + (clipInfo.r2view * weights.y) + (clipInfo.r3view * weights.z) }; 
+            glm::vec3 v { (-clipInfo.v1view * weights.x) + (-clipInfo.v2view * weights.y) + (-clipInfo.v3view * weights.z) };
+            glm::vec3 intensity { Lighting::GetPhongIllumination(0.1f, 0.6f, 0.3f, 4.0f, l, n, r, v) };
+
+
+            fb.Colours[bufferIndex] = texSamples * glm::vec4{ intensity, 1.0f };
         }
         else {
             //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
-            fb.Colours[bufferIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
+            fb.Colours[bufferIndex] = glm::vec4{clipInfo.t.c1 * weights.x + clipInfo.t.c2 * weights.y + clipInfo.t.c3 * weights.z};
         }
             
     }
 }
-    
+   
+void Shader::DrawModel(const Model& model, const glm::mat4& modelMatrix, FrameBuffer& frameBuffer, const Texture& texture){
+
+
+    std::vector<ClipSpaceInfo> clipSpaceModel { ToClipSpace(model, modelMatrix) };
+        
+    for (int i { 0 }; i < clipSpaceModel.size(); i++){
+            
+        RasterizeTriangle(clipSpaceModel[i], texture, frameBuffer);
+            
+    }
+}

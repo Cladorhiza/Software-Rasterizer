@@ -97,6 +97,9 @@ int main(void)
     glm::mat4 view { 1.0f };
 
     Shader shader{proj, view};
+    Shader::LightInfo lightInfo;
+    lightInfo.worldPosition = {500.0f, 500.0f, 500.0f};
+    shader.lightInfo = lightInfo;
 
     Texture wood_front{ "res/textures/wood_side.png" };
     Texture wood_top{ "res/textures/wood_top.png" };
@@ -128,10 +131,10 @@ int main(void)
             break;
         }
 
-        rotation += 0.075f;
-        if (rotation > 360.0f) rotation -= 360.0f;
-        model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 25.f*sin(rotation), 0.0f});
-        model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
+        //rotation += 0.075f;
+        //if (rotation > 360.0f) rotation -= 360.0f;
+        //model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 25.f*sin(rotation), 0.0f});
+        //model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
         
         //camera
         if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
@@ -163,13 +166,7 @@ int main(void)
         
         shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
 
-        std::vector<Triangle> clipSpaceModel { shader.ToClipSpace(benchModel, model) };
-        
-        for (int i { 0 }; i < clipSpaceModel.size(); i++){
-            
-            shader.DrawTriangle(clipSpaceModel[i], benchColour, frameBuff);
-            
-        }
+        shader.DrawModel(benchModel, model, frameBuff, benchColour);
 
         //glDrawPixels(WIDTH, HEIGHT, GL_RED, GL_FLOAT, frameBuff.Depth.data());
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
