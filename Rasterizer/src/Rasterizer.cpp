@@ -9,6 +9,8 @@
 #include "InputManager.h"
 #include "CoreTypes.h"
 #include "FileParsing.h"
+#include "Shader.h"
+#include "Stopwatch.h"
 //stl
 #include <iostream>
 #include <vector>
@@ -53,6 +55,7 @@ int main(void)
 
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(0); /*disable vsync*/
 
     GLenum err = glewInit();
     if (GLEW_OK != err)
@@ -105,10 +108,16 @@ int main(void)
 
     glm::vec3 camForward { 0.0f, 0.0f, -1.0f };
     glm::vec3 camTranslation {0.0f, 0.0f, 200.0f};
+
+    Stopwatch frameTimer;
+    double cumulativeFrameTime = 0.0f;
+    int frameCount = 0;
     
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        frameTimer.Restart();
+
         frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);
 
         //input
@@ -119,10 +128,10 @@ int main(void)
             break;
         }
 
-        //rotation += 0.075f;
-        //if (rotation > 360.0f) rotation -= 360.0f;
-        //model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 100.f*sin(rotation), 0.0f});
-        //model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
+        rotation += 0.075f;
+        if (rotation > 360.0f) rotation -= 360.0f;
+        model = glm::translate(glm::mat4{ 1.0f }, {0.0f, 25.f*sin(rotation), 0.0f});
+        model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
         
         //camera
         if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
@@ -158,15 +167,22 @@ int main(void)
         
         for (int i { 0 }; i < clipSpaceModel.size(); i++){
             
-            frameBuff.DrawTriangle(clipSpaceModel[i], benchColour);
+            shader.DrawTriangle(clipSpaceModel[i], benchColour, frameBuff);
             
         }
 
-
         //glDrawPixels(WIDTH, HEIGHT, GL_RED, GL_FLOAT, frameBuff.Depth.data());
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
-        
         glfwSwapBuffers(window);
+
+        cumulativeFrameTime += frameTimer.GetElapsed();
+
+        if (cumulativeFrameTime / 1000000000 > 1) {
+            cumulativeFrameTime -= 1000000000;
+            std::cout << "Fps: " << frameCount << "\n";
+            frameCount = 0;
+        }
+        else frameCount++;
     }
 
     glfwTerminate();

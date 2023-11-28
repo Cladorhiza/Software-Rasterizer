@@ -1,0 +1,225 @@
+#include "Shader.h"
+
+Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
+    :proj(proj), view(view)
+{
+    
+}
+
+Triangle Shader::ToClipSpace(Triangle t, const glm::mat4& model){
+        
+    glm::mat4 mvp { proj * view * model };
+        
+    //get in clip space
+    glm::vec4 v1, v2, v3;
+
+    v1 = mvp * glm::vec4{t.v1, 1.0f};
+    v2 = mvp * glm::vec4{t.v2, 1.0f};
+    v3 = mvp * glm::vec4{t.v3, 1.0f};
+        
+    //if depth from origin in clip space is 0, I'm setting it to -1 to make sure they don't render
+    if (v1.w == 0) v1.w = -1;
+    if (v2.w == 0) v2.w = -1;
+    if (v3.w == 0) v3.w = -1;
+
+    t.v1 = v1 / v1.w;
+    t.v2 = v2 / v2.w;
+    t.v3 = v3 / v3.w;
+
+    //keep z ordering info from clip space
+    t.v1.z = v1.z;
+    t.v2.z = v2.z;
+    t.v3.z = v3.z;
+
+    return t;
+}
+
+//TODO: less OOP solution, a general function for just the geometry perhaps? without explicit model struct type
+std::vector<Triangle> Shader::ToClipSpace(const Model& m, const glm::mat4& model){
+
+    std::vector<Triangle> result;
+    result.reserve( m.triIndexes.size()/2 );
+    //2 tris per quad
+    for (int i { 0 }; i+3 < m.triIndexes.size(); i+=4){
+        
+        //create 2 tris
+        Triangle t[] {
+            {
+            m.vertices[static_cast<size_t>(m.triIndexes[i].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 1].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 2].x) - 1],
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            m.texCoords[static_cast<size_t>(m.triIndexes[i].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 1].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 1].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 2].z) - 1]
+            }
+            ,
+            {
+            m.vertices[static_cast<size_t>(m.triIndexes[i].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 2].x) - 1],
+            m.vertices[static_cast<size_t>(m.triIndexes[i + 3].x) - 1],
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+            m.texCoords[static_cast<size_t>(m.triIndexes[i].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 2].y) - 1],
+            m.texCoords[static_cast<size_t>(m.triIndexes[i + 3].y) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 2].z) - 1],
+            m.normals[static_cast<size_t>(m.triIndexes[i + 3].z) - 1]
+            }
+        };
+
+        //transform to clip space
+        //add to result vector
+        result.emplace_back(ToClipSpace(t[0], model));
+        result.emplace_back(ToClipSpace(t[1], model));
+
+    }
+    return result;
+}
+
+void Shader::DrawTriangle(Triangle t, const Texture& tex, FrameBuffer& fb){
+
+    using namespace std;
+
+    //get in screen space
+    t.v1.x = (t.v1.x + 1) * (fb.width / 2);
+    t.v1.y = (t.v1.y + 1) * (fb.height / 2);
+    t.v2.x = (t.v2.x + 1) * (fb.width / 2);
+    t.v2.y = (t.v2.y + 1) * (fb.height / 2);
+    t.v3.x = (t.v3.x + 1) * (fb.width / 2);
+    t.v3.y = (t.v3.y + 1) * (fb.height / 2);
+
+    glm::vec3 verts[]{t.v1, t.v2, t.v2, t.v3, t.v3, t.v1};
+
+    //storage for pixels drawn in specific format
+    vector<pair<uint16_t,uint16_t>> xLineIndexes;
+    //information regarding bounds of the triangle, want the bounding box to also be bounded by the window dimensions as there's no reason to store x or y values outside of the screen
+    int xUpper { min(static_cast<int>(max({floor(t.v1.x), floor(t.v2.x), floor(t.v3.x)})), fb.width - 1) };
+    int yUpper { min(static_cast<int>(max({floor(t.v1.y), floor(t.v2.y), floor(t.v3.y)})), fb.height - 1)};
+    int xLower { max(static_cast<int>(min({floor(t.v1.x), floor(t.v2.x), floor(t.v3.x)})), 0) };
+    int yLower { max(static_cast<int>(min({floor(t.v1.y), floor(t.v2.y), floor(t.v3.y)})), 0) };
+    //each vector represents the triangles x points on the lines of the triangle
+    xLineIndexes.resize(abs(yUpper - yLower) + 1);
+    //ensure that any x value present will be less than the initial minimum x
+    for (auto& [xMin, _ ] : xLineIndexes){
+        xMin = fb.width - 1;
+    }
+
+    for (int i {0}; i < 6; i+=2){
+        
+        glm::vec3 v1 { verts[i] };
+        glm::vec3 v2 { verts[i+1] };
+
+        float dx{ v1.x - v2.x };
+        float dy{ v1.y - v2.y };
+        float dz{ v1.z - v2.z };
+        float step;
+            
+        if (abs(dx) > abs(dy)) step = abs(dx);
+        else step = abs(dy);
+                        
+        float xInc { (step == 0)? 0 : dx / step };
+        float yInc { (step == 0)? 0 : dy / step };
+
+        for (int i{ 0 }; i <= step; i++){
+
+            //TODO: potential floating point/overflow errors causing indexes to be out of bounds
+            uint16_t xIndex { static_cast<uint16_t>(floor(v2.x + (xInc * i))) };
+            uint16_t yIndex { static_cast<uint16_t>(floor(v2.y + (yInc * i))) };
+            int buffIndex { xIndex + yIndex * fb.width };
+
+            int lineValIndex { yIndex - yLower };
+
+            //TODO: replace this with real clipping, as it could be that coordinates are outside screen but the resulting lines/faces are in the screen
+            if (yIndex < 0 || yIndex >= fb.height) continue;
+
+            //TODO: overflows at high values
+            pair<uint16_t,uint16_t>& xLine { xLineIndexes[lineValIndex] };
+
+            //TODO: depth won't work properly for partial triangles, because these depth values are for the offscreen coordinate, not the one I'm replacing it with
+            if (xIndex < 0) {
+                xLine.first = 0;
+                continue;
+            }
+            else if (xIndex >= fb.width) {
+                xLine.second = fb.width-1;
+                continue;
+            }
+
+            xLine.first = min(xIndex, xLine.first);
+            xLine.second = max(xIndex, xLine.second);
+
+            DrawPixel(t, {xIndex, yIndex}, buffIndex, tex, fb);
+        }
+    }
+
+    //FILL POLYGON
+    for (int i { 0 }; i < xLineIndexes.size(); i++){
+            
+        int buffIndexStart { xLineIndexes[i].first };
+        int buffIndexEnd { xLineIndexes[i].second };
+
+        for (int j { buffIndexStart + 1 }; j < buffIndexEnd; j++){
+                
+            int colourIndex { j + ((i + yLower) * fb.width) };
+
+            DrawPixel(t, { j, i + yLower }, colourIndex, tex, fb);
+        }
+    }
+}
+
+void Shader::DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex, FrameBuffer& fb) {
+        
+    glm::vec3 weights { Maths::BarycentricWeights(t.v1, t.v2, t.v3, {pixelPosition, 0.0f}) };
+
+    //todo: this is bandaid, pixels should not be being drawn if they are outside the triangle
+    if (weights.x < 0.0f || weights.y < 0.0f || weights.z < 0.0f) return;
+
+    float pixelDepth { t.v1.z * weights.x + t.v2.z * weights.y + t.v3.z * weights.z };
+
+    //write pixel if depth is lower
+    if (fb.Depth[bufferIndex] > pixelDepth) {
+                    
+        fb.Depth[bufferIndex] = pixelDepth;
+            
+        if (tex.image.size() > 0) {
+
+            glm::vec2 temp[] {
+                t.uv1 * weights.x,
+                t.uv2 * weights.y,
+                t.uv3 * weights.z
+            };
+
+            glm::vec2 index { temp[0] + temp[1] + temp[2] };
+
+            int indexComponents[] {
+                (static_cast<int>(floor(index.x * (tex.width-1))) * tex.channels),
+                (static_cast<int>(floor(index.y * (tex.height-1))) * tex.width * tex.channels)
+            };
+
+            int sampleIndex { indexComponents[0] + indexComponents[1] };
+                
+            glm::vec4 texSamples {
+                static_cast<float>(tex.image[sampleIndex])   / 255.0f,
+                static_cast<float>(tex.image[sampleIndex+1]) / 255.0f,
+                static_cast<float>(tex.image[sampleIndex+2]) / 255.0f,
+                static_cast<float>(tex.image[sampleIndex+3]) / 255.0f,
+            };
+
+            fb.Colours[bufferIndex] = texSamples;
+        }
+        else {
+            //TODO: these weights are calc'd from rounded coordinates, resulting in potentially inaccurate values
+            fb.Colours[bufferIndex] = glm::vec4{t.c1 * weights.x + t.c2 * weights.y + t.c3 * weights.z};
+        }
+            
+    }
+}
+    

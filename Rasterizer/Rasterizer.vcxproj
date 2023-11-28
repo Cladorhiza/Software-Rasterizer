@@ -149,15 +149,19 @@
     <ClCompile Include="src\Maths.cpp" />
     <ClCompile Include="src\Rasterizer.cpp" />
     <ClCompile Include="src\CoreTypes.cpp" />
+    <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\stb_image.cpp" />
+    <ClCompile Include="src\Stopwatch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\FileParsing.h" />
     <ClInclude Include="inc\InputManager.h" />
     <ClInclude Include="inc\Lighting.h" />
     <ClInclude Include="inc\Maths.h" />
+    <ClInclude Include="inc\Shader.h" />
     <ClInclude Include="inc\stb_image.h" />
     <ClInclude Include="inc\CoreTypes.h" />
+    <ClInclude Include="inc\Stopwatch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -45,12 +45,6 @@ struct Model{
 
     Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes);
 
-
-
-
-
-
-
 };
 
 struct Texture{
@@ -59,18 +53,7 @@ struct Texture{
     int width, height, channels;
 
     Texture(std::string filePath);
-};
 
-//Shaders store (uniform) state that is required to transform a triangle from object space to clip space
-struct Shader{
-    
-    glm::mat4 proj;
-    glm::mat4 view;
-
-    Shader(const glm::mat4& proj, const glm::mat4& view);
-
-    Triangle ToClipSpace(Triangle t, const glm::mat4& model);
-    std::vector<Triangle> ToClipSpace(const Model& m, const glm::mat4& model);
 };
 
 struct FrameBuffer{
@@ -80,17 +63,8 @@ struct FrameBuffer{
     int width, height;
 
     FrameBuffer(int width, int height);
-    
+
     void Clear(const glm::vec4& clearColour, float clearDepth);
 
-    void DrawPixel(const Triangle& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex);
-    
-    /// <summary>
-    /// Expects a triangle already in clip space. 
-    /// Line drawing done with DDA algorithm.
-    /// </summary>
-    /// <param name="t">The triangle to draw to the buffer</param>
-    /// <param name="tex">The texture to sample from when drawing pixels for the triangle</param>
-    void DrawTriangle(Triangle t, const Texture& tex);
 };
 
