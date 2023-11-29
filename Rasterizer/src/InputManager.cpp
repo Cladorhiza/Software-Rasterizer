@@ -15,7 +15,8 @@ namespace InputManager{
 		GLFW_KEY_X,
 		GLFW_KEY_Q,
 		GLFW_KEY_E,
-		GLFW_KEY_ESCAPE
+		GLFW_KEY_ESCAPE,
+		GLFW_KEY_F2
 	};
 	//stored state of keys
 	std::unordered_map<int, int> keys;
