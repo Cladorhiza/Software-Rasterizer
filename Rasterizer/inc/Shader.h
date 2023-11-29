@@ -21,7 +21,7 @@ public:
 
     struct LightInfo{
         glm::vec3 worldPosition;
-        glm::vec3 ambientIntensity, diffuseIntensity, specularIntensity;
+        glm::vec4 ambientIntensity, diffuseIntensity, specularIntensity;
     };
 
     glm::mat4 proj;
