@@ -6,5 +6,6 @@ Features so far:
 - Wireframe/filled triangles
 - MVP matrix transformations
 - Texture sampling
+- Multithreaded fragment shading
  
 Uses stb_image to load textures: https://github.com/nothings/stb
