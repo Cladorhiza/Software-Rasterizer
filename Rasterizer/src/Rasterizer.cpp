@@ -116,11 +116,6 @@ int main(void)
     glm::vec3 camForward { 0.0f, 0.0f, -1.0f };
     glm::vec3 camTranslation {0.0f, 0.0f, 200.0f};
 
-    Stopwatch frameTimer;
-    double cumulativeFrameTime = 0.0f;
-    int frameCount = 0;
-    
-
 
 
     //imgui
@@ -142,8 +137,6 @@ int main(void)
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
-        frameTimer.Restart();
-        
         frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);
 
         //Input
@@ -212,26 +205,14 @@ int main(void)
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
         }
-        
 
         ImGui::Render();
-
-
 
         shader.DrawModel(benchModel, model, frameBuff, benchColour);
 
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
-
-        cumulativeFrameTime += frameTimer.GetElapsed();
-
-        if (cumulativeFrameTime / 1000000000 > 1) {
-            cumulativeFrameTime -= 1000000000;
-            std::cout << "Fps: " << frameCount << "\n";
-            frameCount = 0;
-        }
-        else frameCount++;
     }
 
     // Cleanup

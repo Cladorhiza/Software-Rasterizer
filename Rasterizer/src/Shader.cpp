@@ -2,13 +2,51 @@
 
 #include "Lighting.h"
 
-Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
-    :proj(proj), view(view)
+#include <iostream>
+
+void FragmentShaderThread::Setup(FrameBuffer& fb,
+                                   const Texture& tex,
+                                   ClipSpaceInfo& csi,
+                                   std::vector<std::pair<glm::vec2, int>> pixelCoordsWithIndex) 
 {
+    this->fb = &fb;
+    this->tex = &tex;
+    this->csi = &csi;
+    this->pixelCoordsWithIndex = pixelCoordsWithIndex;
     
 }
 
-Shader::ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
+void FragmentShaderThread::DrawPixelJob(std::condition_variable& cv, std::mutex& mutex, std::atomic_int& threadsReady, Shader* shader){
+
+    while (alive){
+    
+        std::unique_lock<std::mutex> lm { mutex };
+        threadsReady++;
+        cv.wait(lm);
+        lm.unlock();
+    
+        for (auto& [pixCoord, buffIndex] : pixelCoordsWithIndex) {
+    
+            shader->DrawPixel(*csi, pixCoord, buffIndex, *tex, *fb);
+        }
+    }
+}
+
+Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
+    :proj(proj), view(view), THREAD_COUNT(std::thread::hardware_concurrency())
+{
+    fragmentReadyCount = 0;
+
+    fragmentShaderThreadPool = new FragmentShaderThread[THREAD_COUNT];
+
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+    
+        fragmentShaderThreadPool[i].thread = std::thread { &FragmentShaderThread::DrawPixelJob, &fragmentShaderThreadPool[i] , std::ref(fragmentStartNotifier), std::ref(fragmentStart), std::ref(fragmentReadyCount), this };
+    }
+
+}
+
+ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
     
     ClipSpaceInfo result;
     result.t = t;
@@ -62,7 +100,7 @@ Shader::ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& mo
 }
 
 //TODO: less OOP solution, a general function for just the geometry perhaps? without explicit model struct type
-std::vector<Shader::ClipSpaceInfo> Shader::ToClipSpace(const Model& m, const glm::mat4& model){
+std::vector<ClipSpaceInfo> Shader::ToClipSpace(const Model& m, const glm::mat4& model){
 
     std::vector<ClipSpaceInfo> result;
     result.reserve( m.triIndexes.size()/2 );
@@ -145,6 +183,10 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
         xMin = fb.width - 1;
     }
 
+    std::vector<std::pair<glm::vec2, int>> pixelsToDraw;
+    pixelsToDraw.reserve(32);
+
+    //CALC OUTLINES OF TRI
     for (int i {0}; i < 6; i+=2){
         
         glm::vec3 v1 { verts[i] };
@@ -189,7 +231,7 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
             xLine.first = min(xIndex, xLine.first);
             xLine.second = max(xIndex, xLine.second);
 
-            DrawPixel(clipInfo, {xIndex, yIndex}, buffIndex, tex, fb);
+            pixelsToDraw.emplace_back(glm::vec2{xIndex, yIndex}, buffIndex);
         }
     }
 
@@ -203,9 +245,53 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
                 
             int colourIndex { j + ((i + yLower) * fb.width) };
 
-            DrawPixel(clipInfo, { j, i + yLower }, colourIndex, tex, fb);
+            pixelsToDraw.emplace_back(glm::vec2{ j, i + yLower }, colourIndex);
         }
     }
+
+    //single threaded
+    //for (int i { 0 }; i < pixelsToDraw.size(); i++){
+    //    
+    //    DrawPixel(clipInfo, pixelsToDraw[i].first, pixelsToDraw[i].second, tex, fb);
+    //    
+    //    
+    //}
+    
+    
+    
+    
+    //balance workload to threads for drawing pixels
+
+    size_t remainder { pixelsToDraw.size() % THREAD_COUNT };
+    int offset { 0 };
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+    
+        size_t pixelsThisThread {pixelsToDraw.size() / THREAD_COUNT};
+
+        //Any remainders from dividing the work by thread should be counted for
+        if (i < remainder) {
+            pixelsThisThread++;
+        }
+
+        std::vector<std::pair<glm::vec2, int>> threadLocalPixelData(pixelsToDraw.begin() + offset, pixelsToDraw.begin() + offset + pixelsThisThread);
+        //update offset so next thread starts from previous end point
+        offset += pixelsThisThread;
+
+        fragmentShaderThreadPool[i].Setup(fb, tex, clipInfo, threadLocalPixelData);    
+    }
+
+
+    std::unique_lock<std::mutex> lm(fragmentStart);
+    fragmentReadyCount = 0;
+    fragmentStartNotifier.notify_all();
+    lm.unlock();
+
+    //TODO: keep main thread running while rendering?
+    while (fragmentReadyCount < std::thread::hardware_concurrency())
+    {
+        
+    }
+    
 }
 
 void Shader::DrawPixel(const ClipSpaceInfo& clipInfo, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex, FrameBuffer& fb) {
