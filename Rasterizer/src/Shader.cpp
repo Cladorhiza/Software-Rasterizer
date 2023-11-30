@@ -3,6 +3,7 @@
 #include "Lighting.h"
 
 #include <iostream>
+#include <algorithm>
 
 void FragmentShaderThread::Setup(FrameBuffer& fb,
                                    const Texture& tex,
@@ -51,15 +52,15 @@ ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
     ClipSpaceInfo result;
     result.t = t;
 
-    glm::mat4 vp { view * model };
+    glm::mat4 vm { view * model };
         
     //transform to view space for lighting info
-    result.v1view = vp * glm::vec4{t.v1, 1.0f};
-    result.v2view = vp * glm::vec4{t.v2, 1.0f};
-    result.v3view = vp * glm::vec4{t.v3, 1.0f};
+    result.v1view = vm * glm::vec4{t.v1, 1.0f};
+    result.v2view = vm * glm::vec4{t.v2, 1.0f};
+    result.v3view = vm * glm::vec4{t.v3, 1.0f};
 
     //get view space normals, TODO: this doesn't work for non linear scaling, it will mess up the normals. look at learnopenGL basic lighting for info
-    glm::mat3 normalTransform { vp };
+    glm::mat3 normalTransform { vm };
 
     result.n1view = normalTransform * t.n1;
     result.n2view = normalTransform * t.n2;
@@ -194,7 +195,6 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
 
         float dx{ v1.x - v2.x };
         float dy{ v1.y - v2.y };
-        float dz{ v1.z - v2.z };
         float step;
             
         if (abs(dx) > abs(dy)) step = abs(dx);
@@ -215,7 +215,6 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
             //TODO: replace this with real clipping, as it could be that coordinates are outside screen but the resulting lines/faces are in the screen
             if (yIndex < 0 || yIndex >= fb.height) continue;
 
-            //TODO: overflows at high values
             pair<uint16_t,uint16_t>& xLine { xLineIndexes[lineValIndex] };
 
             //TODO: depth won't work properly for partial triangles, because these depth values are for the offscreen coordinate, not the one I'm replacing it with
@@ -336,7 +335,7 @@ void Shader::DrawPixel(const ClipSpaceInfo& clipInfo, glm::vec2 pixelPosition, i
             glm::vec3 n { (clipInfo.n1view * weights.x) + (clipInfo.n2view * weights.y) + (clipInfo.n3view * weights.z) }; 
             glm::vec3 r { (clipInfo.r1view * weights.x) + (clipInfo.r2view * weights.y) + (clipInfo.r3view * weights.z) }; 
             glm::vec3 v { (-clipInfo.v1view * weights.x) + (-clipInfo.v2view * weights.y) + (-clipInfo.v3view * weights.z) };
-            glm::vec3 intensity { Lighting::GetPhongIllumination(0.1f, 0.6f, 0.3f, 4.0f, l, n, r, v, lightInfo.ambientIntensity, lightInfo.diffuseIntensity, lightInfo.specularIntensity) };
+            glm::vec3 intensity { Lighting::GetPhongIllumination(1.0f, 0.0f, 0.0f, 4.0f, l, n, r, v, lightInfo.ambientIntensity, lightInfo.diffuseIntensity, lightInfo.specularIntensity) };
 
 
             fb.Colours[bufferIndex] = texSamples * glm::vec4{ intensity, 1.0f };

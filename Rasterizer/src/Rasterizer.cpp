@@ -116,8 +116,6 @@ int main(void)
     glm::vec3 camForward { 0.0f, 0.0f, -1.0f };
     glm::vec3 camTranslation {0.0f, 0.0f, 200.0f};
 
-
-
     //imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
