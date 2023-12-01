@@ -300,10 +300,10 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
             pixelsThisThread++;
         }
 
-        fragmentShaderThreadPool[i].Setup(fb, tex, clipInfo, pixelsToDraw.data() + offset, pixelsThisThread);    
+        fragmentShaderThreadPool[i].Setup(fb, tex, clipInfo, pixelsToDraw.data() + offset, static_cast<int>(pixelsThisThread));    
 
         //update offset so next thread starts from previous end point
-        offset += pixelsThisThread;
+        offset += static_cast<int>(pixelsThisThread);
     }
 
 
@@ -313,7 +313,7 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
     lm.unlock();
 
     //TODO: keep main thread running while rendering?
-    while (fragmentReadyCount < std::thread::hardware_concurrency())
+    while (fragmentReadyCount < static_cast<int>(THREAD_COUNT))
     {
         
     }

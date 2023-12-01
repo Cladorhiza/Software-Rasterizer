@@ -12,6 +12,7 @@
 #include "FileParsing.h"
 #include "Shader.h"
 #include "Stopwatch.h"
+#include "Camera.h"
 //stl
 #include <iostream>
 #include <vector>
@@ -96,11 +97,12 @@ int main(void)
 
     float rotation { 0 };
 
-    glm::vec3 camForward { 0.0f, 0.0f, -1.0f };
-    glm::vec3 camTranslation {0.0f, 0.0f, 200.0f};
+    Camera mainCam{{0.0f, 0.0f, 200.0f}, {0.0f, 0.0f, 0.0f}};
+    float cameraSpeed { 150.0f };
+    float cameraRotationSpeed { 50.0f };
 
-
-
+    Stopwatch frameTime;
+    float deltaTime { 0.0 };
     //imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -120,6 +122,7 @@ int main(void)
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        frameTime.Restart();
         frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);
 
         //Input
@@ -137,37 +140,23 @@ int main(void)
         //model = glm::rotate(model, rotation, glm::vec3{0.0f, 1.0f, 0.0f});
         
         //camera
-        if (InputManager::GetKeyState(GLFW_KEY_A) == GLFW_PRESS){
-            camTranslation.x -= 5.f;
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_D) == GLFW_PRESS){
-            camTranslation.x += 5.f;
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_W) == GLFW_PRESS){
-            camTranslation.y += 5.f;
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_S) == GLFW_PRESS){
-            camTranslation.y -= 5.f;
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_X) == GLFW_PRESS){
-        	camTranslation.z -= 5.f;
-            std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_C) == GLFW_PRESS){
-            camTranslation.z += 5.f;
-            std::cout << camTranslation.x << ", " << camTranslation.y << ", " << camTranslation.z << "\n";
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_Q) == GLFW_PRESS){
-            camForward = glm::rotate(camForward, 0.05f, glm::vec3{0.0f, 1.0f, 0.0f});
-        }
-        if (InputManager::GetKeyState(GLFW_KEY_E) == GLFW_PRESS){
-            camForward = glm::rotate(camForward, -0.05f, glm::vec3{0.0f, 1.0f, 0.0f});
-        }
+        if (InputManager::GetKeyState(GLFW_KEY_Q) ==     GLFW_PRESS) mainCam.Translate(-mainCam.GetUp() * cameraSpeed * deltaTime);
+        if (InputManager::GetKeyState(GLFW_KEY_E) ==     GLFW_PRESS) mainCam.Translate(mainCam.GetUp() * cameraSpeed * deltaTime);
+        if (InputManager::GetKeyState(GLFW_KEY_W) ==     GLFW_PRESS) mainCam.Translate(mainCam.GetForward() * cameraSpeed * deltaTime);
+        if (InputManager::GetKeyState(GLFW_KEY_A) ==     GLFW_PRESS) mainCam.Translate(-mainCam.GetRight() * cameraSpeed * deltaTime);
+        if (InputManager::GetKeyState(GLFW_KEY_S) ==     GLFW_PRESS) mainCam.Translate(-mainCam.GetForward() * cameraSpeed * deltaTime);
+        if (InputManager::GetKeyState(GLFW_KEY_D) ==     GLFW_PRESS) mainCam.Translate(mainCam.GetRight() * cameraSpeed * deltaTime);
+        if (InputManager::GetKeyState(GLFW_KEY_UP) ==    GLFW_PRESS) mainCam.Rotate(glm::vec3{cameraRotationSpeed * deltaTime, 0.0f, 0.0f});
+        if (InputManager::GetKeyState(GLFW_KEY_DOWN) ==  GLFW_PRESS) mainCam.Rotate(glm::vec3{-cameraRotationSpeed * deltaTime, 0.0f, 0.0f});
+        if (InputManager::GetKeyState(GLFW_KEY_LEFT) ==  GLFW_PRESS) mainCam.Rotate(glm::vec3{0.0f, cameraRotationSpeed * deltaTime, 0.0f});
+        if (InputManager::GetKeyState(GLFW_KEY_RIGHT) == GLFW_PRESS) mainCam.Rotate(glm::vec3{0.0f, -cameraRotationSpeed * deltaTime, 0.0f});
+        shader.view = mainCam.GetViewMatrix();
+       
+        //toggle light edit debug window
         if (InputManager::GetKeyToggle(GLFW_KEY_F2)){
             showLightWindow = !showLightWindow;
         }
         
-        shader.view = glm::lookAt(camTranslation, camTranslation + camForward, {0.0f, 1.0f, 0.0f});
 
         //Render
 
@@ -196,6 +185,8 @@ int main(void)
         glDrawPixels(WIDTH, HEIGHT, GL_RGBA, GL_FLOAT, frameBuff.Colours.data());
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
+        //want in seconds
+        deltaTime = frameTime.GetElapsed() / 1000000000.0;
     }
 
     // Cleanup
