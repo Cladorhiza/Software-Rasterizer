@@ -40,6 +40,7 @@ public:
     LightInfo lightInfo;
 
     Shader(const glm::mat4& proj, const glm::mat4& view);
+    ~Shader();
 
     //TODO: should my pipeline be static, with some kind of shader parameter to call vertex/fragment operations on, while keeping everything else fixed?
     ClipSpaceInfo ToClipSpace(const Triangle& t, const glm::mat4& model);

@@ -71,27 +71,10 @@ int main(void)
     //~Init
     //Application
 
-    Model benchModel;
-    FileParsing::OBJFileParseResult benchData { FileParsing::ParseObjToData(FileParsing::LoadFile("res/models/bench/Bench.obj")) };
     
-    //prevent resizing
-    benchModel.vertices.reserve(benchData.vertices.size()/3);
-    benchModel.normals.reserve(benchData.normals.size()/3);
-    benchModel.texCoords.reserve(benchData.texCoords.size()/2);
-    benchModel.triIndexes.reserve(benchData.indexes.size()/3);
-
-    for (int i {0}; i+2 < benchData.vertices.size(); i+=3){
-        benchModel.vertices.emplace_back(benchData.vertices[i], benchData.vertices[i + 1], benchData.vertices[i + 2]);
-    }
-    for (int i {0}; i+2 < benchData.normals.size(); i+=3){
-        benchModel.normals.emplace_back(benchData.normals[i], benchData.normals[i + 1], benchData.normals[i + 2]);
-    }
-    for (int i {0}; i+1 < benchData.texCoords.size(); i+=2){
-        benchModel.texCoords.emplace_back(benchData.texCoords[i], benchData.texCoords[i + 1]);
-    }
-    for (int i {0}; i+2 < benchData.indexes.size(); i+=3){
-        benchModel.triIndexes.emplace_back(benchData.indexes[i], benchData.indexes[i + 1], benchData.indexes[i + 2]);
-    }
+    FileParsing::OBJFileParseResult benchData { FileParsing::ParseObjToData(FileParsing::LoadFile("res/models/bench/Bench.obj")) };
+    Model benchModel { Model::OBJFPRtoModel(benchData) };
+    
 
     FrameBuffer frameBuff { WIDTH, HEIGHT };
     frameBuff.Clear(CLEAR_COLOUR, CLIP_FAR);

@@ -3,6 +3,7 @@
 #include "stb_image.h"
 
 #include "Maths.h"
+#include "FileParsing.h"
 
 #include <vector>
 #include <string>
@@ -44,8 +45,11 @@ struct Model{
     Model();
 
     Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& texCoords, const std::vector<glm::vec3>& triIndexes);
-
+    //Converts from OBJ to internal representation of a model
+    static Model OBJFPRtoModel(const FileParsing::OBJFileParseResult& data);
 };
+
+
 
 struct Texture{
     

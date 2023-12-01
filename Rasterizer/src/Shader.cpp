@@ -30,6 +30,7 @@ struct FragmentShaderThread{
     }
 
     void DrawPixelJob(std::condition_variable& cv, std::mutex& mutex, std::atomic_int& threadsReady, Shader* shader){
+        
         while (alive){
     
             std::unique_lock<std::mutex> lm { mutex };
@@ -37,9 +38,10 @@ struct FragmentShaderThread{
             cv.wait(lm);
             lm.unlock();
             
-            for (int i { 0 }; i < pixelArrSize; i++){
-                shader->DrawPixel(*csi, pixelArr[i].first, pixelArr[i].second, *tex, *fb);
-            
+            if (alive){
+                for (int i { 0 }; i < pixelArrSize; i++){
+                    shader->DrawPixel(*csi, pixelArr[i].first, pixelArr[i].second, *tex, *fb);
+                }
             }
         }
     }
@@ -57,6 +59,21 @@ Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
         fragmentShaderThreadPool[i].thread = std::thread { &FragmentShaderThread::DrawPixelJob, &fragmentShaderThreadPool[i] , std::ref(fragmentStartNotifier), std::ref(fragmentStart), std::ref(fragmentReadyCount), this };
     }
 
+}
+
+Shader::~Shader(){
+
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+        fragmentShaderThreadPool[i].alive = false;
+    }
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+        fragmentStartNotifier.notify_all();
+    }
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+        fragmentShaderThreadPool[i].thread.join();
+    }
+
+    delete[] fragmentShaderThreadPool;
 }
 
 ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
@@ -159,10 +176,10 @@ std::vector<ClipSpaceInfo> Shader::ToClipSpace(const Model& m, const glm::mat4& 
         ClipSpaceInfo csi2 { ToClipSpace(t[1], model) };
         //TODO: currently this only takes into account 1 normal to dot for backface culling, so it won't work for 3 verts with different normals (idk when that would be...) (maybe this is good)
         //Also this assumes that the quad always has the same normals for both triangles which... feels correct? Idk still a novice so might be wrong
-        //if (glm::dot(csi1.t.n1, glm::vec3{0.0f, 0.0f, 1.0f} - glm::vec3{(csi1.t.v1 + csi1.t.v2 + csi1.t.v3) / 3.0f}) < 0) {
+        if (glm::dot(csi1.t.n1, glm::vec3{0.0f, 0.0f, 0.0f} - glm::vec3{(csi1.t.v1 + csi1.t.v2 + csi1.t.v3) / 3.0f}) > 0) {
             result.push_back(csi1);
             result.push_back(csi2);
-        //}
+        }
 
     }
     return result;
