@@ -32,6 +32,31 @@ Model::Model(const std::vector<glm::vec3>& vertices, const std::vector<glm::vec3
 {
 }
 
+Model Model::OBJFPRtoModel(const FileParsing::OBJFileParseResult& data){
+
+    Model result;
+    //since my representation of a model is using vectors, the size of each vector will be equal to the raw data / dimensions of the vector
+    result.vertices.reserve(data.vertices.size()/3);
+    result.normals.reserve(data.normals.size()/3);
+    result.texCoords.reserve(data.texCoords.size()/2);
+    result.triIndexes.reserve(data.indexes.size()/3);
+
+    for (int i {0}; i+2 < data.vertices.size(); i+=3){
+        result.vertices.emplace_back(data.vertices[i], data.vertices[i + 1], data.vertices[i + 2]);
+    }
+    for (int i {0}; i+2 < data.normals.size(); i+=3){
+        result.normals.emplace_back(data.normals[i], data.normals[i + 1], data.normals[i + 2]);
+    }
+    for (int i {0}; i+1 < data.texCoords.size(); i+=2){
+        result.texCoords.emplace_back(data.texCoords[i], data.texCoords[i + 1]);
+    }
+    for (int i {0}; i+2 < data.indexes.size(); i+=3){
+        result.triIndexes.emplace_back(data.indexes[i], data.indexes[i + 1], data.indexes[i + 2]);
+    }
+
+    return result;
+}
+
 Texture::Texture(std::string filePath) 
     :width(0), height(0), channels(0)
 {

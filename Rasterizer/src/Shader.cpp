@@ -5,33 +5,47 @@
 #include <iostream>
 #include <algorithm>
 
-void FragmentShaderThread::Setup(FrameBuffer& fb,
-                                   const Texture& tex,
-                                   ClipSpaceInfo& csi,
-                                   std::vector<std::pair<glm::vec2, int>> pixelCoordsWithIndex) 
-{
-    this->fb = &fb;
-    this->tex = &tex;
-    this->csi = &csi;
-    this->pixelCoordsWithIndex = pixelCoordsWithIndex;
-    
-}
+struct FragmentShaderThread{
+        
+    std::thread thread;
 
-void FragmentShaderThread::DrawPixelJob(std::condition_variable& cv, std::mutex& mutex, std::atomic_int& threadsReady, Shader* shader){
+    bool alive = true;
+    FrameBuffer* fb;
+    const Texture* tex;
+    ClipSpaceInfo* csi;
+    std::pair<glm::vec2, int>* pixelArr;
+    int pixelArrSize;
 
-    while (alive){
+    void Setup(FrameBuffer& fb,
+                const Texture& tex,
+                ClipSpaceInfo& csi,
+                std::pair<glm::vec2, int>* pixelArr,
+                int pixelArrSize)
+    {
+        this->fb = &fb;
+        this->tex = &tex;
+        this->csi = &csi;
+        this->pixelArr = pixelArr;
+        this->pixelArrSize = pixelArrSize;
+    }
+
+    void DrawPixelJob(std::condition_variable& cv, std::mutex& mutex, std::atomic_int& threadsReady, Shader* shader){
+        
+        while (alive){
     
-        std::unique_lock<std::mutex> lm { mutex };
-        threadsReady++;
-        cv.wait(lm);
-        lm.unlock();
-    
-        for (auto& [pixCoord, buffIndex] : pixelCoordsWithIndex) {
-    
-            shader->DrawPixel(*csi, pixCoord, buffIndex, *tex, *fb);
+            std::unique_lock<std::mutex> lm { mutex };
+            threadsReady++;
+            cv.wait(lm);
+            lm.unlock();
+            
+            if (alive){
+                for (int i { 0 }; i < pixelArrSize; i++){
+                    shader->DrawPixel(*csi, pixelArr[i].first, pixelArr[i].second, *tex, *fb);
+                }
+            }
         }
     }
-}
+};
 
 Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
     :proj(proj), view(view), THREAD_COUNT(std::thread::hardware_concurrency())
@@ -45,6 +59,21 @@ Shader::Shader(const glm::mat4& proj, const glm::mat4& view)
         fragmentShaderThreadPool[i].thread = std::thread { &FragmentShaderThread::DrawPixelJob, &fragmentShaderThreadPool[i] , std::ref(fragmentStartNotifier), std::ref(fragmentStart), std::ref(fragmentReadyCount), this };
     }
 
+}
+
+Shader::~Shader(){
+
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+        fragmentShaderThreadPool[i].alive = false;
+    }
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+        fragmentStartNotifier.notify_all();
+    }
+    for (int i { 0 }; i < THREAD_COUNT; i++){
+        fragmentShaderThreadPool[i].thread.join();
+    }
+
+    delete[] fragmentShaderThreadPool;
 }
 
 ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
@@ -147,10 +176,10 @@ std::vector<ClipSpaceInfo> Shader::ToClipSpace(const Model& m, const glm::mat4& 
         ClipSpaceInfo csi2 { ToClipSpace(t[1], model) };
         //TODO: currently this only takes into account 1 normal to dot for backface culling, so it won't work for 3 verts with different normals (idk when that would be...) (maybe this is good)
         //Also this assumes that the quad always has the same normals for both triangles which... feels correct? Idk still a novice so might be wrong
-        //if (glm::dot(csi1.t.n1, glm::vec3{0.0f, 0.0f, 1.0f} - glm::vec3{(csi1.t.v1 + csi1.t.v2 + csi1.t.v3) / 3.0f}) < 0) {
+        if (glm::dot(csi1.t.n1, glm::vec3{0.0f, 0.0f, 0.0f} - glm::vec3{(csi1.t.v1 + csi1.t.v2 + csi1.t.v3) / 3.0f}) > 0) {
             result.push_back(csi1);
             result.push_back(csi2);
-        //}
+        }
 
     }
     return result;
@@ -256,12 +285,10 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
     //    
     //}
     
-    
-    
-    
-    //balance workload to threads for drawing pixels
 
+    //remainder used to balance workload to threads for drawing pixels
     size_t remainder { pixelsToDraw.size() % THREAD_COUNT };
+
     int offset { 0 };
     for (int i { 0 }; i < THREAD_COUNT; i++){
     
@@ -272,11 +299,10 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
             pixelsThisThread++;
         }
 
-        std::vector<std::pair<glm::vec2, int>> threadLocalPixelData(pixelsToDraw.begin() + offset, pixelsToDraw.begin() + offset + pixelsThisThread);
-        //update offset so next thread starts from previous end point
-        offset += pixelsThisThread;
+        fragmentShaderThreadPool[i].Setup(fb, tex, clipInfo, pixelsToDraw.data() + offset, static_cast<int>(pixelsThisThread));    
 
-        fragmentShaderThreadPool[i].Setup(fb, tex, clipInfo, threadLocalPixelData);    
+        //update offset so next thread starts from previous end point
+        offset += static_cast<int>(pixelsThisThread);
     }
 
 
@@ -286,7 +312,7 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
     lm.unlock();
 
     //TODO: keep main thread running while rendering?
-    while (fragmentReadyCount < std::thread::hardware_concurrency())
+    while (fragmentReadyCount < static_cast<int>(THREAD_COUNT))
     {
         
     }

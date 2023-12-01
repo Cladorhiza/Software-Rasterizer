@@ -8,28 +8,24 @@ namespace Lighting{
 								   const glm::vec4& aI, const glm::vec4& dI, const glm::vec4& sI){
 		
 		
+		l = glm::normalize(l);
+		r = glm::normalize(r);
+		v = glm::normalize(v);
 
 		glm::vec3 ambientTerm { aI * ka };
+		glm::vec3 diffuseTerm { 0.0f, 0.0f, 0.0f };
+		glm::vec3 specularTerm { 0.0f, 0.0f, 0.0f };
 		
-		glm::vec3 specularTerm{0.0f, 0.0f, 0.0f};
+		
 
-		l = glm::normalize(l);
-		glm::vec3 diffuseTerm;
 		float nDotL { glm::dot(n,l) };
 		
+		//Only calc specular highlights if surface is lit by diffuse light
 		if (nDotL > 0.0f){
-
 			diffuseTerm = dI * kd * nDotL;
-			r = glm::normalize(r);
-			v = glm::normalize(v);
-			
 			glm::vec3 specularTerm { sI * ks * pow(glm::dot(r, v), shininess)};
-		
 		}
-		else {
-			diffuseTerm = {0.0f, 0.0f, 0.0f};
-		}
-		
+
 		glm::vec3 illuminance { ambientTerm + diffuseTerm + specularTerm };
 
 		return illuminance;

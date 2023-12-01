@@ -8,39 +8,20 @@
 #include <condition_variable>
 
 struct ClipSpaceInfo{
-    Triangle t;
+        Triangle t;
 
-    //lighting info
-    glm::vec3 v1view, v2view, v3view;
-    glm::vec3 n1view, n2view, n3view;
-    glm::vec3 r1view, r2view, r3view;
-};
+        //lighting info
+        glm::vec3 v1view, v2view, v3view;
+        glm::vec3 n1view, n2view, n3view;
+        glm::vec3 r1view, r2view, r3view;
+    };
 
-class Shader;
-
-struct FragmentShaderThread{
-        
-    std::thread thread;
-
-    bool alive = true;
-    FrameBuffer* fb;
-    const Texture* tex;
-    ClipSpaceInfo* csi;
-    std::vector<std::pair<glm::vec2, int>> pixelCoordsWithIndex;
-
-    void Setup(FrameBuffer& fb,
-                const Texture& tex,
-                ClipSpaceInfo& csi,
-                std::vector<std::pair<glm::vec2, int>> pixelCoordsWithIndex);
-
-    void DrawPixelJob(std::condition_variable& cv, std::mutex& mutex, std::atomic_int& threadsReady, Shader* shader);
-};
+struct FragmentShaderThread;
 
 //Shaders store (uniform) state that is required to transform a triangle from object space to clip space
 class Shader{
     
     
-
 public:
 
     struct LightInfo{
@@ -59,6 +40,7 @@ public:
     LightInfo lightInfo;
 
     Shader(const glm::mat4& proj, const glm::mat4& view);
+    ~Shader();
 
     //TODO: should my pipeline be static, with some kind of shader parameter to call vertex/fragment operations on, while keeping everything else fixed?
     ClipSpaceInfo ToClipSpace(const Triangle& t, const glm::mat4& model);
