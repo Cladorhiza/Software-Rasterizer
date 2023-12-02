@@ -121,9 +121,9 @@ ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
     result.t.v3 = v3 / v3.w;
 
     //keep z ordering info from clip space
-    result.t.v1.z = v1.z;
-    result.t.v2.z = v2.z;
-    result.t.v3.z = v3.z;
+    //result.t.v1.z = v1.z;
+    //result.t.v2.z = v2.z;
+    //result.t.v3.z = v3.z;
 
     return result;
 }
@@ -203,10 +203,10 @@ void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, Frame
     //storage for pixels drawn in specific format
     vector<pair<uint16_t,uint16_t>> xLineIndexes;
     //information regarding bounds of the triangle, want the bounding box to also be bounded by the window dimensions as there's no reason to store x or y values outside of the screen
-    int xUpper { min(static_cast<int>(max({floor(clipInfo.t.v1.x), floor(clipInfo.t.v2.x), floor(clipInfo.t.v3.x)})), fb.width - 1) };
-    int yUpper { min(static_cast<int>(max({floor(clipInfo.t.v1.y), floor(clipInfo.t.v2.y), floor(clipInfo.t.v3.y)})), fb.height - 1)};
-    int xLower { max(static_cast<int>(min({floor(clipInfo.t.v1.x), floor(clipInfo.t.v2.x), floor(clipInfo.t.v3.x)})), 0) };
-    int yLower { max(static_cast<int>(min({floor(clipInfo.t.v1.y), floor(clipInfo.t.v2.y), floor(clipInfo.t.v3.y)})), 0) };
+    int xUpper { min(static_cast<int>(max({floor(clipInfo.t.v1.x), floor(clipInfo.t.v2.x), floor(clipInfo.t.v3.x), 0.f})), fb.width - 1) };
+    int yUpper { min(static_cast<int>(max({floor(clipInfo.t.v1.y), floor(clipInfo.t.v2.y), floor(clipInfo.t.v3.y), 0.f})), fb.height - 1)};
+    int xLower { max(static_cast<int>(min({floor(clipInfo.t.v1.x), floor(clipInfo.t.v2.x), floor(clipInfo.t.v3.x), static_cast<float>(fb.width - 1)})), 0) };
+    int yLower { max(static_cast<int>(min({floor(clipInfo.t.v1.y), floor(clipInfo.t.v2.y), floor(clipInfo.t.v3.y), static_cast<float>(fb.height - 1)})), 0) };
     //each vector represents the triangles x points on the lines of the triangle
     xLineIndexes.resize(abs(yUpper - yLower) + 1);
     //ensure that any x value present will be less than the initial minimum x
@@ -379,18 +379,46 @@ void Shader::DrawModel(const Model& model, const glm::mat4& modelMatrix, FrameBu
 
 
     std::vector<ClipSpaceInfo> clipSpaceModel { ToClipSpace(model, modelMatrix) };
+    std::vector<ClipSpaceInfo> postAxesTestTris;
+    postAxesTestTris.reserve(clipSpaceModel.size());
+
+    int offset[] { 0,1,2 };
+    float axisValue[] { -1.f, 1.f, -1.f, 1.f, -1.f, 1.f };
     
+    for (int i { 0 }; i < clipSpaceModel.size(); i++){
     
+        bool failed = false;
+        for (int j { 0 }; j < 3; j++){
     
-    
-    
+            if (*(&clipSpaceModel[i].t.v1.x + offset[j]) < axisValue[j * 2] &&
+                *(&clipSpaceModel[i].t.v2.x + offset[j]) < axisValue[j * 2] &&
+                *(&clipSpaceModel[i].t.v3.x + offset[j]) < axisValue[j * 2]) {
+                failed = true;
+                break;
+            }
+            if (*(&clipSpaceModel[i].t.v1.x + offset[j]) > axisValue[(j * 2) + 1] &&
+                *(&clipSpaceModel[i].t.v2.x + offset[j]) > axisValue[(j * 2) + 1] &&
+                *(&clipSpaceModel[i].t.v3.x + offset[j]) > axisValue[(j * 2) + 1]) {
+                failed = true;
+                break;
+            }
+        }
+
+        if (failed) continue;
+
+        //TODO: test whether remaining triangles are fully inside the volume, if so they can skip being clipped
+
+
+        postAxesTestTris.push_back(clipSpaceModel[i]);
+    }
+
     
     std::vector<ClipSpaceInfo> clippedModel;
-    clippedModel.reserve(clipSpaceModel.size());
+    clippedModel.reserve(postAxesTestTris.size());
 
-    for (int i { 0 }; i < clipSpaceModel.size(); i++){
+    for (int i { 0 }; i < postAxesTestTris.size(); i++){
             
-        std::vector<ClipSpaceInfo> clippedTris { ClipTriangleOpenGLCanonical(clipSpaceModel[i]) };
+        std::vector<ClipSpaceInfo> clippedTris { ClipTriangleOpenGLCanonical(postAxesTestTris[i]) };
         
         for (const ClipSpaceInfo& csi : clippedTris){
             clippedModel.push_back(csi);
@@ -402,6 +430,8 @@ void Shader::DrawModel(const Model& model, const glm::mat4& modelMatrix, FrameBu
         RasterizeTriangle(clippedModel[i], texture, frameBuffer);
             
     }
+
+    std::cout << "Model tri count: " << clipSpaceModel.size() << ". post axes test: " << postAxesTestTris.size() << ". post clipping: " << clippedModel.size() << ". \n";
 }
 
 std::vector<ClipSpaceInfo> Shader::ClipTriangleOpenGLCanonical(const ClipSpaceInfo& t){
