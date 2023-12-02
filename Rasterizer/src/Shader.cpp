@@ -112,10 +112,9 @@ ClipSpaceInfo Shader::ToClipSpace(const Triangle& t, const glm::mat4& model){
     result.t.n2 = mvpNorms * t.n2;
     result.t.n3 = mvpNorms * t.n3;
 
-    //if depth from origin in clip space is 0, I'm setting it to -1 to make sure they don't render
-    if (v1.w == 0) v1.w = -1;
-    if (v2.w == 0) v2.w = -1;
-    if (v3.w == 0) v3.w = -1;
+    if (v1.w == 0) v1.w = 0.000001f;
+    if (v2.w == 0) v2.w = 0.000001f;
+    if (v3.w == 0) v3.w = 0.000001f;
 
     result.t.v1 = v1 / v1.w;
     result.t.v2 = v2 / v2.w;
@@ -188,6 +187,8 @@ std::vector<ClipSpaceInfo> Shader::ToClipSpace(const Model& m, const glm::mat4& 
 void Shader::RasterizeTriangle(ClipSpaceInfo clipInfo, const Texture& tex, FrameBuffer& fb){
 
     using namespace std;
+
+    
 
     //get in screen space
     clipInfo.t.v1.x = (clipInfo.t.v1.x + 1) * (fb.width / 2);
@@ -361,7 +362,7 @@ void Shader::DrawPixel(const ClipSpaceInfo& clipInfo, glm::vec2 pixelPosition, i
             glm::vec3 n { (clipInfo.n1view * weights.x) + (clipInfo.n2view * weights.y) + (clipInfo.n3view * weights.z) }; 
             glm::vec3 r { (clipInfo.r1view * weights.x) + (clipInfo.r2view * weights.y) + (clipInfo.r3view * weights.z) }; 
             glm::vec3 v { (-clipInfo.v1view * weights.x) + (-clipInfo.v2view * weights.y) + (-clipInfo.v3view * weights.z) };
-            glm::vec3 intensity { Lighting::GetPhongIllumination(1.0f, 0.0f, 0.0f, 4.0f, l, n, r, v, lightInfo.ambientIntensity, lightInfo.diffuseIntensity, lightInfo.specularIntensity) };
+            glm::vec3 intensity { Lighting::GetPhongIllumination(.1f, .7f, 0.2f, 2.0f, l, n, r, v, lightInfo.ambientIntensity, lightInfo.diffuseIntensity, lightInfo.specularIntensity) };
 
 
             fb.Colours[bufferIndex] = texSamples * glm::vec4{ intensity, 1.0f };
@@ -378,10 +379,140 @@ void Shader::DrawModel(const Model& model, const glm::mat4& modelMatrix, FrameBu
 
 
     std::vector<ClipSpaceInfo> clipSpaceModel { ToClipSpace(model, modelMatrix) };
-        
+    
+    
+    
+    
+    
+    
+    std::vector<ClipSpaceInfo> clippedModel;
+    clippedModel.reserve(clipSpaceModel.size());
+
     for (int i { 0 }; i < clipSpaceModel.size(); i++){
             
-        RasterizeTriangle(clipSpaceModel[i], texture, frameBuffer);
+        std::vector<ClipSpaceInfo> clippedTris { ClipTriangleOpenGLCanonical(clipSpaceModel[i]) };
+        
+        for (const ClipSpaceInfo& csi : clippedTris){
+            clippedModel.push_back(csi);
+        }
             
     }
+    for (int i { 0 }; i < clippedModel.size(); i++){
+            
+        RasterizeTriangle(clippedModel[i], texture, frameBuffer);
+            
+    }
+}
+
+std::vector<ClipSpaceInfo> Shader::ClipTriangleOpenGLCanonical(const ClipSpaceInfo& t){
+
+    std::vector<ClipSpaceInfo> newTris;
+
+    std::vector<glm::vec3> outputList;
+    std::vector<glm::vec3> inputList {t.t.v1, t.t.v2, t.t.v3};
+
+    
+    //Calculate intersections and create new polygon
+    for (int i { 0 }; i < 4; i++){
+    
+        for (int j { 0 }; j < inputList.size(); j++){
+    
+            glm::vec3 currentPoint { inputList[j] };
+            size_t prevIndex { (j == 0) ? inputList.size()-1 : j - 1};
+            glm::vec3 previousPoint { inputList[prevIndex] };
+
+            //TODO: div by 0?
+            float m = (currentPoint.y - previousPoint.y) / (currentPoint.x - previousPoint.x);
+            float c = currentPoint.y - (m * currentPoint.x);
+            switch (i) {
+            
+            case 0:
+                //clip in line x = -1
+                if ((currentPoint.x < -1.0f && previousPoint.x > -1.0f) ||
+                    (currentPoint.x > -1.0f && previousPoint.x < -1.0f)) {
+                    
+                    //TODO: lerp z coord to store in vec3
+                    glm::vec2 intersection { -1.0f, (m * -1.0f) + c };
+
+                    if (currentPoint.x < -1.0f) outputList.emplace_back(intersection, 1.0f);
+                    else {
+                        outputList.emplace_back(intersection, 1.0f);
+                        outputList.emplace_back(currentPoint);
+                    }
+                }
+                else outputList.emplace_back(currentPoint);
+                break;
+            case 1:
+                //clip in line x = 1
+                if ((currentPoint.x > 1.0f && previousPoint.x < 1.0f) ||
+                    (currentPoint.x < 1.0f && previousPoint.x > 1.0f)) {
+                    
+                    //TODO: lerp z coord to store in vec3
+                    glm::vec2 intersection { 1.0f, (m * 1.0f) + c };
+
+                    if (currentPoint.x > 1.0f) outputList.emplace_back(intersection, 1.0f);
+                    else {
+                        outputList.emplace_back(intersection, 1.0f);
+                        outputList.emplace_back(currentPoint);
+                    }
+                }
+                else outputList.emplace_back(currentPoint);
+
+                break;
+            case 2:
+                //clip in line y = -1
+                if ((currentPoint.y < -1.0f && previousPoint.y > -1.0f) ||
+                    (currentPoint.y > -1.0f && previousPoint.y < -1.0f)) {
+                    
+                    //TODO: lerp z coord to store in vec3
+                    glm::vec2 intersection { (-1.0f - c) / m, -1.0f};
+
+                    if (currentPoint.y < -1.0f) outputList.emplace_back(intersection, 1.0f);
+                    else {
+                        outputList.emplace_back(intersection, 1.0f);
+                        outputList.emplace_back(currentPoint);
+                    }
+                }
+                else outputList.emplace_back(currentPoint);
+
+                break;
+            case 3:
+                //clip in line y = 1
+                if ((currentPoint.y > 1.0f && previousPoint.y < 1.0f) ||
+                    (currentPoint.y < 1.0f && previousPoint.y > 1.0f)) {
+                    
+                    //TODO: lerp z coord to store in vec3
+                    glm::vec2 intersection { (1.0f - c) / m, 1.0f};
+
+                    if (currentPoint.y > 1.0f) outputList.emplace_back(intersection, 1.0f);
+                    else {
+                        outputList.emplace_back(intersection, 1.0f);
+                        outputList.emplace_back(currentPoint);
+                    }
+                }
+                else outputList.emplace_back(currentPoint);
+
+                break;
+            }
+
+        }
+        
+        inputList = outputList;
+        outputList.clear();
+    }
+
+
+    newTris.reserve(inputList.size()-2);
+    //now convert this polygon into triangles
+    for (int i { 0 }; i < inputList.size()-2; i++){
+        
+        //TODO: modify all other values in the triangle like texcoords based on their intersections
+        ClipSpaceInfo csi { t };
+        csi.t.v1 = inputList[0];
+        csi.t.v2 = inputList[i + 1];
+        csi.t.v3 = inputList[i + 2];
+
+        newTris.push_back(csi);
+    }
+    return newTris;
 }

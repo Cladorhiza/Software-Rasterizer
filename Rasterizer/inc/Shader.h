@@ -48,6 +48,7 @@ public:
     void RasterizeTriangle(ClipSpaceInfo t, const Texture& tex, FrameBuffer& fb);
     void DrawPixel(const ClipSpaceInfo& t, glm::vec2 pixelPosition, int bufferIndex, const Texture& tex, FrameBuffer& fb);
     void DrawModel(const Model& model, const glm::mat4& modelMatrix, FrameBuffer& frameBuffer, const Texture& texture);
+    std::vector<ClipSpaceInfo> ClipTriangleOpenGLCanonical(const ClipSpaceInfo& t);
 
     
 };
