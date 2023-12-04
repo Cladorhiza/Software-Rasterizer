@@ -84,10 +84,10 @@ int main(void)
     glm::mat4 view { 1.0f };
 
     Shader shader{proj, view};
-    shader.lightInfo.worldPosition = {300.0f, 300.0f, 300.0f};
-    shader.lightInfo.ambientIntensity = {1.0f, 1.0f, 1.0f, 1.0f};
-    shader.lightInfo.diffuseIntensity = {1.0f, 1.0f, 1.0f, 1.0f};
-    shader.lightInfo.specularIntensity = {1.0f, 1.0f, 1.0f, 1.0f};
+    shader.lightInfo.worldPosition =     {300.0f, 300.0f, 300.0f};
+    shader.lightInfo.ambientIntensity =  {1.0f, 1.0f, 1.0f};
+    shader.lightInfo.diffuseIntensity =  {1.0f, 1.0f, 1.0f};
+    shader.lightInfo.specularIntensity = {1.0f, 1.0f, 1.0f};
 
     Texture wood_front{ "res/textures/wood_side.png" };
     Texture wood_top{ "res/textures/wood_top.png" };
@@ -170,9 +170,9 @@ int main(void)
             //light
             ImGui::Begin("Light Settings");
             ImGui::SliderFloat3("Position", &shader.lightInfo.worldPosition.x, -300.0f, 300.0f);            
-            ImGui::ColorEdit4("Ambient Intensity", &shader.lightInfo.ambientIntensity.x);            
-            ImGui::ColorEdit4("Diffuse Intensity", &shader.lightInfo.diffuseIntensity.x);            
-            ImGui::ColorEdit4("Specular Intensity", &shader.lightInfo.specularIntensity.x);            
+            ImGui::ColorEdit3("Ambient Intensity", &shader.lightInfo.ambientIntensity.x);            
+            ImGui::ColorEdit3("Diffuse Intensity", &shader.lightInfo.diffuseIntensity.x);            
+            ImGui::ColorEdit3("Specular Intensity", &shader.lightInfo.specularIntensity.x);            
             //framerate
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();

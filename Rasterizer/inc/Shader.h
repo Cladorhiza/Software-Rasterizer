@@ -26,7 +26,7 @@ public:
 
     struct LightInfo{
         glm::vec3 worldPosition;
-        glm::vec4 ambientIntensity, diffuseIntensity, specularIntensity;
+        glm::vec3 ambientIntensity, diffuseIntensity, specularIntensity;
     };
 
     const int THREAD_COUNT;

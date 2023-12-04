@@ -362,7 +362,7 @@ void Shader::DrawPixel(const ClipSpaceInfo& clipInfo, glm::vec2 pixelPosition, i
             glm::vec3 n { (clipInfo.n1view * weights.x) + (clipInfo.n2view * weights.y) + (clipInfo.n3view * weights.z) }; 
             glm::vec3 r { (clipInfo.r1view * weights.x) + (clipInfo.r2view * weights.y) + (clipInfo.r3view * weights.z) }; 
             glm::vec3 v { (-clipInfo.v1view * weights.x) + (-clipInfo.v2view * weights.y) + (-clipInfo.v3view * weights.z) };
-            glm::vec3 intensity { Lighting::GetPhongIllumination(.1f, .7f, 0.2f, 2.0f, l, n, r, v, lightInfo.ambientIntensity, lightInfo.diffuseIntensity, lightInfo.specularIntensity) };
+            glm::vec3 intensity { Lighting::GetPhongIllumination({1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, 32.0f, l, n, r, v, lightInfo.ambientIntensity, lightInfo.diffuseIntensity, lightInfo.specularIntensity) };
 
 
             fb.Colours[bufferIndex] = texSamples * glm::vec4{ intensity, 1.0f };
