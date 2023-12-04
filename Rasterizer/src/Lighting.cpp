@@ -19,7 +19,7 @@ namespace Lighting{
 		//Only calc specular highlights if surface is lit by diffuse light
 		if (nDotL > 0.0f){
 			diffuseTerm = dI * kd * nDotL;
-			glm::vec3 specularTerm { sI * ks * pow(glm::dot(r, v), shininess)};
+			glm::vec3 specularTerm { sI * ks * pow(glm::dot(-r, v), shininess)};
 		}
 
 		return ambientTerm + diffuseTerm + specularTerm;

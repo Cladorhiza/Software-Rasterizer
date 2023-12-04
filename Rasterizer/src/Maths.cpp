@@ -21,7 +21,9 @@ namespace Maths {
 
         float det { ((v2.y - v3.y)*(v1.x - v3.x) + (v3.x - v2.x)*(v1.y - v3.y)) };
         //TODO: dunno if any other fix better
-        if (det == 0.0f) det = 0.00000000001f;
+        if (det == 0.0f) {
+            det = 0.00000000001f;
+        }
 
         float w1 { ((v2.y - v3.y)*(p.x - v3.x) + (v3.x - v2.x)*(p.y - v3.y)) / det };
         float w2 { ((v3.y - v1.y)*(p.x - v3.x) + (v1.x - v3.x)*(p.y - v3.y)) / det };
