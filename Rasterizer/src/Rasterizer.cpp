@@ -37,7 +37,7 @@ constexpr glm::vec4 GREEN{0.0f, 1.0f, 0.0f, 1.0f};
 constexpr glm::vec4 BLUE{0.0f, 0.0f, 1.0f, 1.0f};
 constexpr glm::vec4 YELLOW{1.0f, 1.0f, 0.0f, 1.0f};
 constexpr glm::vec4 BURGUNDY{0.5f, 0.0f, 0.125f, 1.0f};
-
+ 
 const glm::vec4 CLEAR_COLOUR{BLACK};
 
 int main(void)
