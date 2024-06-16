@@ -1,4 +1,6 @@
 # Software Rasterizer
+
+Video demo: https://www.youtube.com/watch?v=cfG3i3dEq9Y
  
 My attempt at making a rasterizer mainly to understand as much as possible about the graphics pipeline.
  
